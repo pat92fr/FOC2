@@ -28,6 +28,16 @@ float fconstrain(float x, float min, float max)
         return x;
 }
 
+float fconstrain_both(float x, float abs)
+{
+    if(x<-abs)
+        return -abs;
+    else if(x>abs)
+        return abs;
+    else
+        return x;
+}
+
 uint32_t map(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max)
 {
     if(x<=in_min)

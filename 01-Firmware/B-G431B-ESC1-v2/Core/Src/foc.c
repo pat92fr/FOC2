@@ -13,7 +13,6 @@
 #include "serial.h"
 #include "position_sensor.h"
 #include "math_tool.h"
-#include "pid.h"
 #include "control_table.h"
 #include "binary_tool.h"
 
@@ -23,8 +22,8 @@
 // hard-coded settings
 #define ALPHA_CURRENT_DQ			0.05f 	// low pass filter for present Id and presetn Iq estimation
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
-#define MAX_PWM_DUTY_CYCLE 			0.95f 	// %
-#define MIN_PWM_DUTY_CYCLE 			0.05f 	// %
+#define MAX_PWM_DUTY_CYCLE 			0.98f 	// %
+#define MIN_PWM_DUTY_CYCLE 			0.02f 	// %
 #define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
 								 	// if commented default SPWM is used
 
@@ -43,7 +42,7 @@ extern OPAMP_HandleTypeDef hopamp3;
 extern HAL_Serial_Handler serial;
 
 // FOC period at PWM output = 16kHz (check TIMER1 ARR value = 4999 and timer frequency =160MHz)
-static uint32_t const current_sample_drop_rate = 1;
+static uint32_t const current_sample_drop_rate = 0;
 // 3:250us cycle
 // 2:187us cycle
 // 1:125us cycle <- default (conservative, allows debbuging)
@@ -61,8 +60,6 @@ static float motor_current_input_adc_mA[3] = {0.28f,0.28f,0.28f}; // 0.28f
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
 static float present_Id_filtered = 0.0f;
 static float present_Iq_filtered = 0.0f;
-static pid_context_t pid_flux;
-static pid_context_t pid_torque;
 // foc feedback
 static float present_current_sq = 0.0f;
 static float absolute_position_rad = 0.0f;
@@ -98,9 +95,6 @@ void API_FOC_Init()
 	HAL_ADC_Start_DMA(&hadc2,(uint32_t*)ADC2_DMA,3);
 	// CORDIC init
 	API_CORDIC_Processor_Init();
-	// PID init
-	pid_reset(&pid_flux);
-	pid_reset(&pid_torque);
 }
 
 // low level function
@@ -200,16 +194,16 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 	// fTIM = 160MHz
 	// in PWM centered mode, for the finest possible resolution :
 	// ARR = fTIM/(2 * fPWM) -1 => ARR = 4999
-	uint16_t const CCRa = (uint16_t)(duty_cycle_PWMa*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))+1;
-	uint16_t const CCRb = (uint16_t)(duty_cycle_PWMb*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))+1;
-	uint16_t const CCRc = (uint16_t)(duty_cycle_PWMc*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))+1;
+	uint16_t const CCRa = (uint16_t)(duty_cycle_PWMa*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
+	uint16_t const CCRb = (uint16_t)(duty_cycle_PWMb*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
+	uint16_t const CCRc = (uint16_t)(duty_cycle_PWMc*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 
 	// update TIMER CCR registers
 	//   and apply BRAKE if error
 	if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
 	{
 		// compute a valid BRAKE value
-		uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))+1; // note : 0 is OK too
+		uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1; // note : 0 is OK too
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,CCRx);
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRx);
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRx);
@@ -388,7 +382,8 @@ void API_FOC_Torque_Update(
 		float setpoint_torque_current_mA,
 		float setpoint_flux_current_mA,
 		float phase_synchro_offset_rad,
-		uint32_t closed_loop
+		uint32_t closed_loop,
+		float setpoint_velocity_dps
 )
 {
 	// note : absolute position increases when turning CCW (encoder)
@@ -457,35 +452,30 @@ void API_FOC_Torque_Update(
 		// flux controller (PI+FF) ==> Vd [-max_voltage_V,max_voltage_V]
 		float const setpoint_Id = setpoint_flux_current_mA;
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
-		float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
+		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
 		float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
 		float const error_Id = setpoint_Id-( closed_loop == 1 ? present_Id_filtered : 0.0f);
-		float const Vd = pid_process_antiwindup_clamp_with_ff(
-				&pid_flux,
-				error_Id,
-				Flux_Kp,
-				Flux_Ki,
-				0.0f, // no Kd
-				regs[REG_HIGH_VOLTAGE_LIMIT_VALUE],
-				0.0f, // no derivative low pass filter
-				Flux_Kff*setpoint_Id
+		float Vd = error_Id*Flux_Kp+Flux_Kff*setpoint_Id;
+		Vd = fconstrain_both(Vd,
+#ifdef CSVPWM
+			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]*1.15f // over modulation
+#else
+			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]
+#endif
 		);
-
 		// torque controller (PI+FF) ==> Vq [-max_voltage_V,max_voltage_V]
 		float const setpoint_Iq = setpoint_torque_current_mA;
 		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
-		float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
+		//float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
 		float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
 		float const error_Iq = setpoint_Iq-( closed_loop == 1 ? present_Iq_filtered : 0.0f);
-		float const Vq = pid_process_antiwindup_clamp_with_ff(
-				&pid_torque,
-				error_Iq,
-				Torque_Kp,
-				Torque_Ki,
-				0.0f, // no Kd
-				regs[REG_HIGH_VOLTAGE_LIMIT_VALUE],
-				0.0f, // no derivative low pass filter
-				Torque_Kff*setpoint_Iq
+		float Vq = error_Iq*Torque_Kp+Torque_Kff*setpoint_Iq;
+		Vq = fconstrain_both(Vq,
+#ifdef CSVPWM
+			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]*1.15f // over modulation
+#else
+			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]
+#endif
 		);
 
 		// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
