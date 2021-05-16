@@ -271,6 +271,24 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+	// Handle local MMI
+	// Pressing the button starts calibration
+	if(HAL_GPIO_ReadPin(BUTTON_GPIO_Port,BUTTON_Pin)==GPIO_PIN_RESET)
+	{
+		// perform calibration
+		API_FOC_Calibrate();
+		// reset state
+		last_mode = REG_CONTROL_MODE_IDLE;
+		can_armed = false;
+		setpoint_position_deg = 0.0f;
+		setpoint_velocity_dps = 0.0f;
+		error_velocity_dps = 0.0f;
+		setpoint_torque_current_mA = 0.0f;
+		setpoint_flux_current_mA = 0.0f;
+		// update RAM
+		regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
+	}
+
 	// Handle CAN communication
 	while( HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1,FDCAN_RX_FIFO0)!=0)
 	{
@@ -1355,6 +1373,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BUTTON_Pin */
+  GPIO_InitStruct.Pin = BUTTON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(BUTTON_GPIO_Port, &GPIO_InitStruct);
 
 }
 

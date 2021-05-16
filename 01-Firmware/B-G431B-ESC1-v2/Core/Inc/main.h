@@ -64,6 +64,8 @@ void Error_Handler(void);
 #define CAN_TERM_GPIO_Port GPIOC
 #define STATUS_Pin GPIO_PIN_6
 #define STATUS_GPIO_Port GPIOC
+#define BUTTON_Pin GPIO_PIN_10
+#define BUTTON_GPIO_Port GPIOC
 #define CAN_SHDN_Pin GPIO_PIN_11
 #define CAN_SHDN_GPIO_Port GPIOC
 /* USER CODE BEGIN Private defines */
