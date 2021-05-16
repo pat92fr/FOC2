@@ -19,7 +19,7 @@ extern TIM_HandleTypeDef htim6;
 
 typedef struct {
 
-	uint8_t sensorType;
+	e_sensor_type sensor_type;
 
 	// AS5600 handle
 	AS5600_TypeDef *as5600Handle;
@@ -48,15 +48,16 @@ positionSensor_t *positionSensor_New(void) {
     return sensor;
 }
 
-int positionSensor_init(uint8_t sensorType){
+int positionSensor_init(e_sensor_type sensor_type)
+{
 
 	int status=0;
 
 	sensor = positionSensor_New();
 
-	switch(sensorType)
+	switch(sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 	{
 		uint16_t angle_data;
 
@@ -73,14 +74,14 @@ int positionSensor_init(uint8_t sensorType){
 		sensor->angle_rad = 0;
 		sensor->lastUpdate = __HAL_TIM_GET_COUNTER(&htim6);
 
-		sensor->sensorType = sensorType_AS5600_I2C;
+		sensor->sensor_type = sensor_type;
 
 		status = 1;
 	    break;
 	}
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		API_AS5048A_Position_Sensor_Init(&htim4);
-		sensor->sensorType = sensorType_AS5048A_PWM;
+		sensor->sensor_type = sensor_type;
 		status = 1;
 	    break;
 	default:
@@ -92,9 +93,9 @@ int positionSensor_init(uint8_t sensorType){
 
 float positionSensor_getRadiansEstimation(uint16_t time_us){
 
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 	{
 		uint16_t delta_t_us;
 		if (time_us <= sensor->lastUpdate) {
@@ -104,7 +105,7 @@ float positionSensor_getRadiansEstimation(uint16_t time_us){
 		}
 		return sensor->angle_rad + sensor->velocity_rad*(float)(delta_t_us)/1000000.0f;
 	}
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		return API_AS5048A_Position_Sensor_Get_Radians_Estimation(time_us);
 	default:
 		return 0;
@@ -140,10 +141,10 @@ void positionSensor_getAngle(void){
 void positionSensor_update(void){
 
 
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
 	// get new data from as5600 sensor
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 	{
 		float delta_time_us;
 		float d_angle;
@@ -194,12 +195,12 @@ void positionSensor_update(void){
 
 float positionSensor_getRadians(void)
 {
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 		return sensor->angle_rad;
 
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		return API_AS5048A_Position_Sensor_Get_Radians();
 
 	default:
@@ -209,12 +210,12 @@ float positionSensor_getRadians(void)
 
 float positionSensor_getRadiansMultiturn(void)
 {
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 		return sensor->angle_rad;
 
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		return API_AS5048A_Position_Sensor_Get_Multiturn_Radians();
 
 	default:
@@ -223,12 +224,12 @@ float positionSensor_getRadiansMultiturn(void)
 }
 
 float positionSensor_getDegree(void){
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 		return sensor->angle_deg;
 
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		return RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Radians());
 
 	default:
@@ -237,12 +238,12 @@ float positionSensor_getDegree(void){
 }
 
 float positionSensor_getDegreeMultiturn(void){
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 		return sensor->angle_deg;
 
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		return RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians());
 
 	default:
@@ -251,12 +252,12 @@ float positionSensor_getDegreeMultiturn(void){
 }
 
 float positionSensor_getVelocityDegree(void){
-	switch(sensor->sensorType)
+	switch(sensor->sensor_type)
 	{
-	case sensorType_AS5600_I2C:
+	case AS5600_I2C:
 		return sensor->velocity_deg;
 
-	case sensorType_AS5048A_PWM:
+	case AS5048A_PWM:
 		return API_AS5048A_Position_Sensor_Get_DPS();
 
 	default:
@@ -266,6 +267,7 @@ float positionSensor_getVelocityDegree(void){
 
 
 
-uint8_t positionSensor_getType(void){
-	return sensor->sensorType;
+e_sensor_type positionSensor_getType(void)
+{
+	return sensor->sensor_type;
 }

@@ -11,10 +11,13 @@
 #include "as5048a.h"
 #include "as5600.h"
 
-#define sensorType_AS5600_I2C 1
-#define sensorType_AS5048A_PWM 2
+typedef enum
+{
+	AS5600_I2C,
+	AS5048A_PWM
+} e_sensor_type;
 
-int positionSensor_init(uint8_t sensorType);
+int positionSensor_init(e_sensor_type sensor_type);
 float positionSensor_getRadiansEstimation(uint16_t time_us);
 void positionSensor_update(void);
 float positionSensor_getRadians(void);
@@ -22,6 +25,6 @@ float positionSensor_getRadiansMultiturn(void);
 float positionSensor_getDegree(void);
 float positionSensor_getDegreeMultiturn(void);
 float positionSensor_getVelocityDegree(void);
-uint8_t positionSensor_getType(void);
+e_sensor_type positionSensor_getType(void);
 
 #endif /* INC_POSITION_SENSOR_H_ */

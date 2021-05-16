@@ -46,7 +46,7 @@ static uint32_t const current_sample_drop_rate = 0;
 // 3:250us cycle
 // 2:187us cycle
 // 1:125us cycle <- default (conservative, allows debbuging)
-// 0: 62us cycle <- best possible (one FOC iteration takes about ~54us of processing time)
+// 0: 62us cycle <- best possible (one FOC iteration takes about ~45us of processing time)
 
 // FOC private variables
 static int32_t current_samples = 0;
@@ -61,7 +61,6 @@ static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
 static float present_Id_filtered = 0.0f;
 static float present_Iq_filtered = 0.0f;
 // foc feedback
-static float present_current_sq = 0.0f;
 static float absolute_position_rad = 0.0f;
 // foc analog measure
 static float potentiometer_input_adc = 0.0f;
@@ -170,25 +169,22 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 
 	// convert (Valpha,Vbeta) [-max_voltage_V,max_voltage_V] to (Va,Vb,Vc) [-max_voltage_V,max_voltage_V] [Inverse Clarke Transformation]
 	static float const sqrt3 = sqrtf(3.0f);
-	float Va = Valpha;
-	float Vb = (-Valpha+sqrt3*Vbeta)/2.0f;
-	float Vc = (-Valpha-sqrt3*Vbeta)/2.0f;
+	float const Va = Valpha;
+	float const Vb = (-Valpha+sqrt3*Vbeta)/2.0f;
+	float const Vc = (-Valpha-sqrt3*Vbeta)/2.0f;
 	// SPWM done
 
 #ifdef CSVPWM
-
 	// apply CSVPWM to (Va,Vb,Vc)
 	float const Vneutral = 0.5f*(fmaxf(fmaxf(Va,Vb),Vc)+fminf(fminf(Va,Vb),Vc));
-	Va -= Vneutral;
-	Vb -= Vneutral;
-	Vc -= Vneutral;
-
+#else
+	float const Vneutral = 0.0f;
 #endif
 
 	// convert (Va,Vb,Vc) [-max_voltage_V,max_voltage_V] to PWM duty cycles % [0.0 1.0]
-	float const duty_cycle_PWMa = fconstrain((Va/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
-	float const duty_cycle_PWMb = fconstrain((Vb/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
-	float const duty_cycle_PWMc = fconstrain((Vc/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
+	float const duty_cycle_PWMa = fconstrain(((Va-Vneutral)/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
+	float const duty_cycle_PWMb = fconstrain(((Vb-Vneutral)/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
+	float const duty_cycle_PWMc = fconstrain(((Vc-Vneutral)/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
 
 	// convert PWM duty cycles % to TIMER1 CCR register values
 	// fPWM = 16KHz
@@ -388,7 +384,6 @@ void API_FOC_Torque_Update(
 )
 {
 	// note : absolute position increases when turning CCW (encoder)
-	// note : when Iq is positive, motor turns CW
 	// note : FOC period is less than motor PWM period
 	// drop phase current samples a few times between each FOC iteration
 	if(current_samples>current_sample_drop_rate)
@@ -424,7 +419,6 @@ void API_FOC_Torque_Update(
 		{
 			 motor_current_mA[index]= -((float)motor_current_sample_adc[index]-motor_current_input_adc_offset[index])/motor_current_input_adc_mA[index]; // note : the (-) sign here
 		}
-		present_current_sq = 2.0f/3.0f*(powf(motor_current_mA[0],2.0f)+powf(motor_current_mA[1],2.0f)+powf(motor_current_mA[2],2.0f));
 
 		// process theta for Park and Clarke Transformation and compute cosine(theta) and sine(theta)
 		float const phase_offset_rad = DEGREES_TO_RADIANS((int16_t)(MAKE_SHORT(regs[REG_MOTOR_SYNCHRO_L],regs[REG_MOTOR_SYNCHRO_H])));
@@ -515,10 +509,6 @@ void API_FOC_Torque_Update(
 	}
 }
 
-float API_FOC_Get_Present_Current_SQ()
-{
-	return present_current_sq;
-}
 
 float API_FOC_Get_Present_Torque_Current()
 {

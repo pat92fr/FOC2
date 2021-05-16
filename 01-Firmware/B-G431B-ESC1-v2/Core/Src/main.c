@@ -41,13 +41,22 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+// Position sensor type :
+//    "AS5600_I2C"
+//    "AS5048A_PWM"
+#define SENSOR_TYPE AS5048A_PWM
+
 // PID Loop period in µs
 //  normal setting is 1000us (1KHz)
 //  performance setting is 250 (4KHz)
 #define PID_LOOP_PERIOD 250
 
+// Autocalibration at startup
+//   uncomment this line for calibrating the ESC/MOTOR at startup
+//   comment this line to avoid wearing EEPROM
+//#define PERFORM_AUTO_CALIBRATION_AT_STARTUP
 
-
+// Advanced settings (do not change)
 #define ALPHA_VELOCITY				0.24f // (default:0.24) F = 1000Hz ==> Fc (-3dB) = 20Hz
 #define ALPHA_CURRENT_SETPOINT 		0.48f // (default:0.48) F = 1000Hz ==> Fc (-3dB) = 20Hz
 
@@ -116,7 +125,7 @@ static void MX_I2C1_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-	if (positionSensor_getType() == sensorType_AS5048A_PWM)
+	if (positionSensor_getType() == AS5048A_PWM)
 	{
 	  API_AS5048A_Position_Sensor_It(htim);
 	}
@@ -232,22 +241,17 @@ int main(void)
   uint16_t last_time_us = present_time_us;
   API_FOC_Init();
   HAL_Serial_Init(&huart2,&serial);
-  HAL_Serial_Print(&serial,"RESET!\n");
+  //HAL_Serial_Print(&serial,"RESET!\n");
   if(eeprom_empty())
 	factory_reset_eeprom_regs();
   load_eeprom_regs();
   reset_ram_regs();
   FDCAN_Config();
-
-  // possible sensor types:
-  // sensorType_AS5600_I2C
-  // sensorType_AS5048A_PWM
-  positionSensor_init(sensorType_AS5048A_PWM);
+  positionSensor_init(SENSOR_TYPE);
   positionSensor_update();
-  HAL_Serial_Print(&serial,"Position Sensor OK!\n");
-	/////////////// TO DO ONCE and then comment to avoid wearing EEPROM
-	//API_FOC_Calibrate();
-	///////////////
+#ifdef PERFORM_AUTO_CALIBRATION_AT_STARTUP
+	API_FOC_Calibrate();
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -415,7 +419,7 @@ int main(void)
 					// reset feed-forward torque
 					regs[REG_GOAL_TORQUE_CURRENT_MA_L] = 0;
 					regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
-					// reset flux refence
+					// reset flux refenrece
 					regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
 					regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
 					// reset setpoints
@@ -428,7 +432,7 @@ int main(void)
 					setpoint_position_deg = positionSensor_getDegreeMultiturn();
 				}
 				{
-					// compute position setpoint from goal and EEPROM position limits
+					// compute position set-point from goal and EEPROM position limits
 					float const goal_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_GOAL_POSITION_DEG_L],regs[REG_GOAL_POSITION_DEG_H])))/10.0f;
 					float const reg_min_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_MIN_POSITION_DEG_L],regs[REG_MIN_POSITION_DEG_H])));
 					float const reg_max_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_MAX_POSITION_DEG_L],regs[REG_MAX_POSITION_DEG_H])));
@@ -453,7 +457,7 @@ int main(void)
 					// set flux
 					float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 					setpoint_flux_current_mA = goal_flux_current_mA;
-					// if target speed not reached, process field weaknening :
+					// if target speed not reached, process field weakening :
 					if(
 							( (setpoint_velocity_dps>1000.0f) && (setpoint_velocity_dps>positionSensor_getVelocityDegree()) ) ||
 							( (setpoint_velocity_dps<1000.0f) && (setpoint_velocity_dps<positionSensor_getVelocityDegree()) )
@@ -541,164 +545,7 @@ int main(void)
 //				setpoint_flux_current_mA=0.0f;
 //			}
 //			break;
-//		case REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE: // DEPRECATED
-//			// DEPRECATED
-//			// This mode is replaced by mode 0
-//			// DEPRECATED
-//			if(last_mode!=REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE)
-//			{
-//				pid_reset(&pid_position);
-//				pid_reset(&pid_velocity);
-//				// copy EEPROM to RAM
-//				regs[REG_GOAL_VELOCITY_DPS_L] = regs[REG_MAX_VELOCITY_DPS_L];
-//				regs[REG_GOAL_VELOCITY_DPS_H] = regs[REG_MAX_VELOCITY_DPS_H];
-//				regs[REG_GOAL_TORQUE_CURRENT_MA_L] = regs[REG_MAX_CURRENT_MA_L];
-//				regs[REG_GOAL_TORQUE_CURRENT_MA_H] = regs[REG_MAX_CURRENT_MA_H];
-//				// reset unused RAM
-//				regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
-//				regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
-//				// set goal to current position to avoid glicth
-//				regs[REG_GOAL_POSITION_DEG_L] = LOW_BYTE((int16_t)(10.0f*RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians())));
-//				regs[REG_GOAL_POSITION_DEG_H] = HIGH_BYTE((int16_t)(10.0f*RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians())));
-//				// reset filtered setpoint
-//				setpoint_velocity_dps = 0.0f;
-//				setpoint_torque_current_mA = 0.0f;
-//			}
-//			{
-//				setpoint_acceleration_dpss = 0.0f;
-//				// compute position setpoint from goal and EEPROM velocity limit
-//				float const goal_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_GOAL_POSITION_DEG_L],regs[REG_GOAL_POSITION_DEG_H])))/10.0f;
-//				float const reg_min_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_MIN_POSITION_DEG_L],regs[REG_MIN_POSITION_DEG_H])));
-//				float const reg_max_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_MAX_POSITION_DEG_L],regs[REG_MAX_POSITION_DEG_H])));
-//				setpoint_position_deg = fconstrain(goal_position_deg,reg_min_position_deg,reg_max_position_deg);
-//				// compute positiony error
-//				float const error_position_deg = setpoint_position_deg-RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians());
-//				// compute velocity setpoint using PID position and EEPROM velocity limit
-//				float const goal_velocity_dps = (int16_t)(MAKE_SHORT(regs[REG_GOAL_VELOCITY_DPS_L],regs[REG_GOAL_VELOCITY_DPS_H]));
-//				float const reg_max_velocity_dps = (uint16_t)(MAKE_SHORT(regs[REG_MAX_VELOCITY_DPS_L],regs[REG_MAX_VELOCITY_DPS_H]));
-//				setpoint_velocity_dps = ALPHA_VELOCITY*pid_process_antiwindup_clamp_with_ff(
-//						&pid_position,
-//						error_position_deg,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_POSITION_KP_L],regs[REG_PID_POSITION_KP_H])))/1.0f,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_POSITION_KI_L],regs[REG_PID_POSITION_KI_H])))/100.0f,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_POSITION_KD_L],regs[REG_PID_POSITION_KD_H])))/1.0f,
-//						fminf(goal_velocity_dps,reg_max_velocity_dps), // limit is the lowest limit from goal and EEPROM
-//						0.1f,// ALPHA D
-//						0.0f // FF
-//				) + (1.0f-ALPHA_VELOCITY)*setpoint_velocity_dps;
-//				// compute velocity error
-//				float const error_velocity_dps = setpoint_velocity_dps-API_FOC_Get_Present_Velocity();
-//				// compute torque current setpoint using PID velocity, current is limited bt goal current and EEPROM current limit
-//				float const goal_torque_current_mA=(int16_t)(MAKE_SHORT(regs[REG_GOAL_TORQUE_CURRENT_MA_L],regs[REG_GOAL_TORQUE_CURRENT_MA_H]));
-//				float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
-//				float const reg_reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
-//				setpoint_torque_current_mA = ALPHA_CURRENT_SETPOINT*reg_reverse*pid_process_antiwindup_clamp_with_ff(
-//						&pid_velocity,
-//						error_velocity_dps,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KP_L],regs[REG_PID_VELOCITY_KP_H])))/1000.0f,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KI_L],regs[REG_PID_VELOCITY_KI_H])))/100000.0f,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KD_L],regs[REG_PID_VELOCITY_KD_H])))/1000.0f,
-//						fminf(goal_torque_current_mA,reg_max_current_ma), // current limit is the lowest limit from goal and EEPROM
-//						0.1f,// ALPHA D
-//						setpoint_velocity_dps*(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KFF_L],regs[REG_PID_VELOCITY_KFF_H])))/1000.0f
-//				) + (1.0f-ALPHA_CURRENT_SETPOINT)*setpoint_torque_current_mA;
-//				// in this operating mode, flux current is forced to 0
-//				setpoint_flux_current_mA=0.0f;
-//			}
-//			break;
-//		case REG_CONTROL_MODE_VELOCITY_TORQUE:
-//			if(last_mode!=REG_CONTROL_MODE_VELOCITY_TORQUE)
-//			{
-//				pid_reset(&pid_velocity);
-//				// copy EEPROM to RAM
-//				regs[REG_GOAL_TORQUE_CURRENT_MA_L] = regs[REG_MAX_CURRENT_MA_L];
-//				regs[REG_GOAL_TORQUE_CURRENT_MA_H] = regs[REG_MAX_CURRENT_MA_H];
-//				// reset unused RAM
-//				regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
-//				regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
-//				regs[REG_GOAL_POSITION_DEG_L] = 0;
-//				regs[REG_GOAL_POSITION_DEG_H] = 0;
-//				// reset goal to avoid glicth
-//				regs[REG_GOAL_VELOCITY_DPS_L] = 0;
-//				regs[REG_GOAL_VELOCITY_DPS_H] = 0;
-//				// reset filtered setpoint
-//				setpoint_torque_current_mA = 0.0f;
-//			}
-//			{
-//				setpoint_position_deg = 0.0f;
-//				setpoint_acceleration_dpss = 0.0f;
-//				// compute velocity setpoint from goal and EEPROM velocity limit
-//				float const goal_velocity_dps = (int16_t)(MAKE_SHORT(regs[REG_GOAL_VELOCITY_DPS_L],regs[REG_GOAL_VELOCITY_DPS_H]));
-//				float const reg_max_velocity_dps = (uint16_t)(MAKE_SHORT(regs[REG_MAX_VELOCITY_DPS_L],regs[REG_MAX_VELOCITY_DPS_H]));
-//				setpoint_velocity_dps = fconstrain(goal_velocity_dps,-reg_max_velocity_dps,reg_max_velocity_dps);
-//				// compute velocity error
-//				float const error_velocity_dps = setpoint_velocity_dps-API_FOC_Get_Present_Velocity();
-//				// compute torque current setpoint using PID velocity, current is limited bt goal current and EEPROM current limit
-//				float const goal_torque_current_mA=(int16_t)(MAKE_SHORT(regs[REG_GOAL_TORQUE_CURRENT_MA_L],regs[REG_GOAL_TORQUE_CURRENT_MA_H]));
-//				float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
-//				float const reg_reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
-//				setpoint_torque_current_mA = ALPHA_CURRENT_SETPOINT*reg_reverse*pid_process_antiwindup_clamp_with_ff(
-//						&pid_velocity,
-//						error_velocity_dps,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KP_L],regs[REG_PID_VELOCITY_KP_H])))/1000.0f,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KI_L],regs[REG_PID_VELOCITY_KI_H])))/100000.0f,
-//						(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KD_L],regs[REG_PID_VELOCITY_KD_H])))/1000.0f,
-//						fminf(goal_torque_current_mA,reg_max_current_ma), // current limit is the lowest limit from goal and EEPROM
-//						0.1f,// ALPHA D
-//						setpoint_velocity_dps*(float)((int16_t)(MAKE_SHORT(regs[REG_PID_VELOCITY_KFF_L],regs[REG_PID_VELOCITY_KFF_H])))/1000.0f
-//				) + (1.0f-ALPHA_CURRENT_SETPOINT)*setpoint_torque_current_mA;
-//				// in this operating mode, flux current is forced to 0
-//				setpoint_flux_current_mA=0.0f;
-//			}
-//			break;
-//		case REG_CONTROL_MODE_TORQUE:
-//			if(last_mode!=REG_CONTROL_MODE_TORQUE)
-//			{
-//				// reset unused RAM
-//				regs[REG_GOAL_POSITION_DEG_L] = 0;
-//				regs[REG_GOAL_POSITION_DEG_H] = 0;
-//				regs[REG_GOAL_VELOCITY_DPS_L] = 0;
-//				regs[REG_GOAL_VELOCITY_DPS_H] = 0;
-//				// reset goal to avoid glicth
-//				regs[REG_GOAL_TORQUE_CURRENT_MA_L] = 0;
-//				regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
-//				regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
-//				regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
-//			}
-//			{
-//				setpoint_position_deg = 0.0f;
-//				setpoint_velocity_dps = 0.0f;
-//				setpoint_acceleration_dpss = 0.0f;
-//				// compute flux & torque current setpoints, from goals and EEPROM current limit
-//				float const goal_torque_current_mA=(int16_t)(MAKE_SHORT(regs[REG_GOAL_TORQUE_CURRENT_MA_L],regs[REG_GOAL_TORQUE_CURRENT_MA_H]));
-//				float const goal_flux_current_mA=(int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
-//				float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
-//				setpoint_flux_current_mA = fconstrain(goal_flux_current_mA,-reg_max_current_ma,reg_max_current_ma);
-//				setpoint_torque_current_mA = fconstrain(goal_torque_current_mA,-reg_max_current_ma,reg_max_current_ma);
-//			}
-//			break;
-//		case REG_CONTROL_MODE_VELOCITY_TORQUE_OPEN_LOOP:
-//			{
-//				if(last_mode!=REG_CONTROL_MODE_VELOCITY_TORQUE_OPEN_LOOP)
-//				{
-//					// reset unused RAM
-//					regs[REG_GOAL_POSITION_DEG_L] = 0;
-//					regs[REG_GOAL_POSITION_DEG_H] = 0;
-//					regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
-//					regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
-//					regs[REG_GOAL_TORQUE_CURRENT_MA_L] = 0;
-//					regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
-//					// reset goal to avoid glicth
-//					regs[REG_GOAL_VELOCITY_DPS_L] = 0;
-//					regs[REG_GOAL_VELOCITY_DPS_H] = 0;
-//				}
-//				setpoint_position_deg = 0.0f;
-//				setpoint_velocity_dps = (int16_t)(MAKE_SHORT(regs[REG_GOAL_VELOCITY_DPS_L],regs[REG_GOAL_VELOCITY_DPS_H]));
-//				setpoint_acceleration_dpss = 0.0f;
-//				setpoint_torque_current_mA = 0.0f;
-//				setpoint_flux_current_mA = 0.0f;
-//			}
-//			break;
+
 		default: // IDLE of other unknown values
 			// reset unused RAM
 			regs[REG_GOAL_POSITION_DEG_L] = 0;
@@ -752,37 +599,6 @@ int main(void)
 		static uint32_t counter = 0;
 		if(((++counter)%4)==0)
 		{
-//		  HAL_GPIO_TogglePin(STATUS_GPIO_Port, STATUS_Pin);
-//			HAL_Serial_Print(&serial,"%d %d %d\n",
-//					(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Radians())),
-//					(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians())),
-//					(int)(API_AS5048A_Position_Sensor_Get_DPS())
-//				);
-//		  			HAL_Serial_Print(&serial,"%d %d %d %d %d\n",
-//		  					(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Radians())),
-//							//(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians())),
-//							(int)(API_AS5048A_Position_Sensor_Get_DPS()),
-//							(int)(API_AS5048A_Position_Sensor_Get_DeltaTimestamp()),
-//							(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_DeltaRad()*1000)),
-//							(int)(API_AS5048A_Position_Sensor_Error_Counter())
-//						);
-//			HAL_Serial_Print(&serial,"%d %d %d %d\n",
-//					(int)(setpoint_velocity_dps),
-//					(int)(API_FOC_Get_Present_Velocity()),
-//					(int)(setpoint_torque_current_mA),
-//					(int)(sqrtf(API_FOC_Get_Present_Current_SQ()))
-//				);
-//			HAL_Serial_Print(&serial,"%d %d %d %d\n",
-//						(int)(setpoint_position_deg),
-//						(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_Multiturn_Radians())),
-//						(int)(setpoint_velocity_dps),
-//						(int)(setpoint_torque_current_mA)
-//					);
-//			HAL_Serial_Print(&serial,"%d %d %d\n",
-//						(int)(setpoint_velocity_dps),
-//						(int)(API_FOC_Get_Present_Velocity()),
-//						(int)(setpoint_torque_current_mA)
-//					);
 //			HAL_Serial_Print(&serial,"%d %d %d\n",
 //						(int)(setpoint_torque_current_mA),
 //						(int)(API_FOC_Get_Present_Torque_Current()),
@@ -792,26 +608,15 @@ int main(void)
 	}
 	// synchro adjustment
 	float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H])));
-	// FOC update (every 250us when current drop rate is set to 4)
-//	if(regs[REG_CONTROL_MODE]==REG_CONTROL_MODE_VELOCITY_TORQUE_OPEN_LOOP)
-//	{
-//		API_FOC_Set_Flux_Velocity(
-//			present_time_us,
-//			setpoint_velocity_dps,
-//			10.0f // hard-coded flux voltage
-//		);
-//	}
-//	else
-	{
-		API_FOC_Torque_Update(
-			present_time_us,
-			setpoint_torque_current_mA,
-			setpoint_flux_current_mA,
-			phase_synchro_offset_rad,
-			regs[REG_GOAL_CLOSED_LOOP], // open loop if 0, closed loop if 1
-			setpoint_velocity_dps
-		);
-	}
+	// FOC update
+	API_FOC_Torque_Update(
+		present_time_us,
+		setpoint_torque_current_mA,
+		setpoint_flux_current_mA,
+		phase_synchro_offset_rad,
+		regs[REG_GOAL_CLOSED_LOOP], // open loop if 0, closed loop if 1
+		setpoint_velocity_dps
+	);
   }
   /* USER CODE END 3 */
 }
