@@ -146,6 +146,8 @@ extern "C" {
 #define REG_RESERVED_RAM_5						0xA8 //40
 #define REG_RESERVED_RAM_6						0xA9 //41
 #define REG_PROCESSING_TIME 					0xAA //42
+#define REG_FOC_FREQUENCY	 					0xAB //43
+#define REG_PID_FREQUENCY	 					0xAC //44
 
 // SW & HW ERROR
 #define REG_PROTOCOL_CRC_FAIL 					0xB0 //48

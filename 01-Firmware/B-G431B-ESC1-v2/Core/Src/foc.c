@@ -71,6 +71,7 @@ static float present_voltage_V = 0.0f;
 static float present_temperature_C = 0.0f;
 // foc performance monitoring (public)
 static float average_processing_time_us = 0.0f;
+static uint32_t foc_counter = 0;
 
 // user API function
 // this function reset state of FOC
@@ -486,6 +487,7 @@ void API_FOC_Torque_Update(
 		uint16_t const t_tp = t_end-t_begin;
 		static const float alpha_performance_monitoring = 0.001f;
 		average_processing_time_us = (1.0f-alpha_performance_monitoring)*average_processing_time_us+alpha_performance_monitoring*(float)t_tp;
+		++foc_counter;
 
 		// TRACE/DEBUG
 		// TODO : use STM32 CUBE MONITOR
@@ -542,6 +544,11 @@ float API_FOC_Get_Processing_Time()
 {
 	return average_processing_time_us;
 
+}
+
+float API_FOC_Get_Processing_Frequency()
+{
+	return (float)foc_counter/(float)HAL_GetTick()*1000.0f;
 }
 
 void API_FOC_It(ADC_HandleTypeDef *hadc)

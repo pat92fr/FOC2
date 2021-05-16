@@ -40,8 +40,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ALPHA_VELOCITY				0.24f // (default:0.12) F = 1000Hz ==> Fc (-3dB) = 20Hz
-#define ALPHA_CURRENT_SETPOINT 		0.48f // (default:0.12) F = 1000Hz ==> Fc (-3dB) = 20Hz
+
+// PID Loop period in µs
+//  normal setting is 1000us (1KHz)
+//  performance setting is 250 (4KHz)
+#define PID_LOOP_PERIOD 250
+
+
+
+#define ALPHA_VELOCITY				0.24f // (default:0.24) F = 1000Hz ==> Fc (-3dB) = 20Hz
+#define ALPHA_CURRENT_SETPOINT 		0.48f // (default:0.48) F = 1000Hz ==> Fc (-3dB) = 20Hz
 
 /* USER CODE END PD */
 
@@ -235,6 +243,7 @@ int main(void)
   // sensorType_AS5600_I2C
   // sensorType_AS5048A_PWM
   positionSensor_init(sensorType_AS5048A_PWM);
+  positionSensor_update();
   HAL_Serial_Print(&serial,"Position Sensor OK!\n");
 	/////////////// TO DO ONCE and then comment to avoid wearing EEPROM
 	//API_FOC_Calibrate();
@@ -251,7 +260,7 @@ int main(void)
 	uint16_t last_mode = REG_CONTROL_MODE_IDLE;
 	bool can_armed = false;
 	uint32_t can_last_time = 0;
-	positionSensor_update();
+	uint32_t pid_counter = 0;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -378,14 +387,13 @@ int main(void)
 	  packet_handler(c);
 	}
 
-	// 1Khz low priority process
-	//#define MAIN_LOO_PERIOD_US 900
-	#define MAIN_LOO_PERIOD_US 250
+	// 1 to 4Khz low priority process
 	present_time_us = __HAL_TIM_GET_COUNTER(&htim6);
 	int16_t const delta_time_us = present_time_us-last_time_us;
-	if(delta_time_us>=MAIN_LOO_PERIOD_US)
+	if(delta_time_us>=PID_LOOP_PERIOD)
 	{
-		last_time_us+=MAIN_LOO_PERIOD_US;
+		last_time_us+=PID_LOOP_PERIOD;
+		++pid_counter;
 		// make alias
 		uint16_t const reg_control_mode = regs[REG_CONTROL_MODE];
 		// process operating mode
@@ -737,6 +745,8 @@ int main(void)
 		regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
 		regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
 		regs[REG_PROCESSING_TIME] = (uint8_t)(API_FOC_Get_Processing_Time());
+		regs[REG_FOC_FREQUENCY] = (uint8_t)(API_FOC_Get_Processing_Frequency()/1000.0f);
+		regs[REG_PID_FREQUENCY] = (uint8_t)((float)pid_counter/(float)HAL_GetTick());
 
 		// TRACE
 		static uint32_t counter = 0;

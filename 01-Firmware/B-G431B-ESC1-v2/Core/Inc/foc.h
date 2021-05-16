@@ -48,6 +48,7 @@ float API_FOC_Get_Present_Current_SQ();
 float API_FOC_Get_Present_Voltage();
 float API_FOC_Get_Present_Temp();
 float API_FOC_Get_Processing_Time();
+float API_FOC_Get_Processing_Frequency();
 
 void API_FOC_It(ADC_HandleTypeDef *hadc);// __attribute__((section (".ccmram")));
 
