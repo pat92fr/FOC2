@@ -73,7 +73,30 @@ At lines 40+ of **main.c**,
 ```
 
 
+# CAN protocol
 
+## Control frame formats
 
+### Full control frame
+
+A full control frame has a 64-bit payload.
+
+Field | Length | Value
+------------ | -------------
+Position | 16b | Position set-point in 1/10 degrees
+Velocity | 16b | Velocity set-point in degrees per second
+Torque | 16b | Torque current feed-forward in mA
+Kp | 8b | Position control
+Kd | 8b | Velocity control
+
+At start-up (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+
+In order to arm the controller, a full control frame with a 0xFFFFFFFFFFFFFFFF payload should be sent. The velocity set-point, the current feed-forward and the Kp and Kd are reset (=0). The position set-point is set to the present rotor position.
+
+To disarm the controller, a full control frame with a 0x000000000000000 payload should be send. The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+
+The controller disarms it-self automatically, when a CAN bus time-out occur (1 second time-out). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+
+***Warning : A high value of Kp or Kd may damage the actuator.***
 
 
