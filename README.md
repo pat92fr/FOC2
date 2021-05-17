@@ -71,15 +71,29 @@ At lines 40+ of **main.c**,
 //    "AS5048A_PWM"
 #define SENSOR_TYPE AS5048A_PWM
 ```
+# 4. Local user interface
 
+# 4.1. Red STATUS LED
 
-# 4. CAN protocol
+The Red STATUS LED is normally OFF.
+
+When an hardware error occurs, the LED is ON.
+
+User may set the LED ON through USB interface.
+
+# 4.2. Button
+
+A short press on the button starts the calibration sequence. It last a few seconds and the motor turns slowly. Rotor should be free to get a good calibration.
+
+***Notice : The number of pole pairs should be configured before starting the calibration sequence. User may set the pole pairs by connecting the ESC to a computer through USB and running the GUI tool.***
+
+# 5. CAN protocol
 
 The controller accepts CAN frame identifier = 000h + its own ID (user configurable ID).
 
 The controler repies with CAN frame identifier = 010h + its own ID (user configurable ID).
 
-## 4.1. Control frame formats
+## 5.1. Control frame formats
 
 At ***start-up*** (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
 
@@ -91,7 +105,7 @@ The controller ***disarms it-self*** automatically, when a CAN bus time-out occu
 
 For 16-bit fields, low byte first position, high byte second position.
 
-### 4.1.1. Full control frame
+### 5.1.1. Full control frame
 
 A full control frame has a 64-bit payload.
 
@@ -105,7 +119,7 @@ Kd | 8b | Velocity control
 
 ***Warning : A high value of Kp or Kd may damage the actuator.***
 
-### 4.1.2. Shortened control frames
+### 5.1.2. Shortened control frames
 
 A 48-bit control frame contains :
 
@@ -129,7 +143,7 @@ Field | Length | Value
 ------------ | ------------- | -------------
 Torque | 16b | Torque current feed-forward in mA
 
-## 4.2. Feedback frame formats
+## 5.2. Feedback frame formats
 
 A 32-bit feedback frame contains :
 
