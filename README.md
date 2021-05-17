@@ -4,6 +4,21 @@ PID/FOC Firmware for B-G431B-ESC1 board.
 
 Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushless-servo-controller
 
+## Characteristics
+
+- [x] 16KHz motor PWM 
+- [x] Open-loop and closed-loop FOC algorithm (16KHz)
+- [x] FOC with CSVPWM algorithm 
+- [x] Torque and Flux control (P only), with current limiter
+- [x] Position control with min/max position limiter (4KHz)
+- [x] Velocity control with max velocity limiter (4KHz) 
+- [x] Torque and Flux feed-forward
+- [x] Auto-calibration of electrical angle and motor rotation 
+- [x] CAN interface for control frames (RX) and feedback frames (TX), with fail-safe on bus time-out
+- [x] Power supply voltage monitoring, with min/max operating voltage
+- [x] Position sensor monitoring, with fail-safe on system error and bus time-out
+- [ ] Field-Weakening (work in progress)
+
 # Hardware (commercial off the shelf)
 
 ![alt text](https://github.com/pat92fr/FOC2/blob/main/00-Doc/00-Hardware/pf267025_m.jpg?raw=true)
