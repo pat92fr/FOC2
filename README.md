@@ -1,6 +1,6 @@
 # FOC2 Development repository for Smart Brushless Servo 
 
-PID/FOC Firmware for B-G431B-ESC1 board.
+PID/FOC Custom Firmware for B-G431B-ESC1 board.
 
 Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushless-servo-controller
 
@@ -14,9 +14,11 @@ Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushl
 - [x] Velocity control with max velocity limiter (4KHz) 
 - [x] Torque and Flux feed-forward
 - [x] Auto-calibration of electrical angle and motor rotation 
-- [x] CAN interface for control frames (RX) and feedback frames (TX), with fail-safe on bus time-out
-- [x] Power supply voltage monitoring, with min/max operating voltage
+- [x] USB control interface : (dynamixel like protocol) allowing full-access to control (RAM) and configuration (EERPOM) registers through a GUI tool.
+- [x] CAN control interface : variable-size control frames (RX) and feedback frames (TX), with fail-safe on bus time-out
+- [x] Power supply voltage monitoring, with min/max operating voltage (user configurable)
 - [x] Position sensor monitoring, with fail-safe on system error and bus time-out
+- [x] Temperature monitoring, with fail-safe on maximum temprature (user configurable) 
 - [ ] Field-Weakening (work in progress)
 
 # Hardware (commercial off the shelf)
