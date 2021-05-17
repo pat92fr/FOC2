@@ -125,6 +125,7 @@ void LL_FOC_Update_Temperature()
 	{
 		// set overheating error
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_OVERHEATING;
+		//HAL_Serial_Print(&serial,"h");
 	}
 	else
 	{
@@ -144,7 +145,8 @@ void LL_FOC_Update_Voltage()
 	{
 		static float const R68 = 169.0f; // kohm
 		static float const R76 = 18.0f; // kohm
-		present_voltage_V = vbus_input_adc/4096.0f*3.3f*(R68+R76)/R76;
+		static float const alpha_voltage = 0.01f;
+		present_voltage_V = (vbus_input_adc/4096.0f*3.3f*(R68+R76)/R76)*alpha_voltage+(1.0f-alpha_voltage)*present_voltage_V;
 	}
 
 	// apply voltage protection and update
@@ -154,6 +156,7 @@ void LL_FOC_Update_Voltage()
 	{
 		// set voltage error
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_VOLTAGE;
+		//HAL_Serial_Print(&serial,"v");
 	}
 	else
 	{
@@ -456,17 +459,17 @@ void API_FOC_Torque_Update(
 		float const setpoint_Id = setpoint_flux_current_mA;
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
-		float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
+		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
 		float const error_Id = setpoint_Id-( closed_loop == 1 ? present_Id_filtered : 0.0f);
-		float Vd = error_Id*Flux_Kp+Flux_Kff*setpoint_Id;
+		float Vd = error_Id*Flux_Kp; //+Flux_Kff*setpoint_Id;
 
 		// torque controller (PI+FF) ==> Vq [-max_voltage_V,max_voltage_V]
 		float const setpoint_Iq = setpoint_torque_current_mA;
 		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 		//float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
-		float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
+		//float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
 		float const error_Iq = setpoint_Iq-( closed_loop == 1 ? present_Iq_filtered : 0.0f);
-		float Vq = error_Iq*Torque_Kp+Torque_Kff*setpoint_Iq;
+		float Vq = error_Iq*Torque_Kp; //+Torque_Kff*setpoint_Iq;
 
 		// VdVq should not exceed present voltage
 		if(present_voltage_V>0) // avoid divide by zero, never true.

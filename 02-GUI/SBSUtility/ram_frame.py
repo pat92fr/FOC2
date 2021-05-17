@@ -115,13 +115,7 @@ class ram_frame(LabelFrame):
 
 	def read_all(self):
 		# write test
-		if self.trace.variables["square_current"].get() == 1:
-			value = self.trace.test_square_current()
-			if  value != 0:
-				print("write RAM...")
-				self.protocol.write_word_command(self.id.current_id,0x47,[value],verbose=1)
-		# write test
-		elif self.trace.variables["square_position"].get() == 1:
+		if self.trace.variables["square_position"].get() == 1:
 			value = self.trace.test_square_position()
 			if  value != 0:
 				print("write RAM...")
@@ -131,13 +125,6 @@ class ram_frame(LabelFrame):
 			if  value != 0:
 				print("write RAM...")
 				self.protocol.write_word_command(self.id.current_id,0x83,[value],verbose=1)
-		elif self.trace.variables["round_position"].get() == 1:
-			update, servo_angles = self.trace.test_round_position()
-			if  update:
-				#print("write RAM...")
-				self.protocol.write_word_command(2,0x43,[int((servo_angles[0,0]+45.0)*10.0)],verbose=0)
-				self.protocol.write_word_command(1,0x43,[int((135.0-servo_angles[1,0])*10.0)],verbose=0)
-
 
 		# send read command
 		if (self.counter%100)==0:

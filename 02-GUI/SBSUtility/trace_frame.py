@@ -6,7 +6,7 @@ from tkinter import *
 #from tkinter.ttk import *
 import time
 from trace_frame import *
-from ik import *
+import math
 
 class trace_frame(LabelFrame):
 
@@ -30,36 +30,17 @@ class trace_frame(LabelFrame):
 
 		fa = LabelFrame(self,text="Actions")
 		fa.grid(column = 0, row = 0, sticky='nesw')
-		fa.columnconfigure(0, weight=1)
-		self.variables["torque_enable_local"] = IntVar()
-		self.variables["torque_enable_local"].set(0)		
-		self.checks['torque_enable'] = Checkbutton(fa,text="Torque Enable", command=self.torque_enable,variable=self.variables["torque_enable_local"])
-		self.checks['torque_enable'].grid(column = 0, row = 0, sticky='nw')
+		fa.columnconfigure(1, weight=1)
 
-		self.variables["current"] = IntVar()
-		self.variables["current"].set(200)		
-		self.entries["current"] = Entry(fa, width = 5, textvariable = self.variables["current"]) 
-		self.entries['current'].grid(column = 5, row = 0, sticky='nw')
-
-		self.variables["square_current"] = IntVar()
-		self.variables["square_current"].set(0)		
-		self.checks['square_current'] = Checkbutton(fa,text="Square current Test", variable=self.variables["square_current"])
-		self.checks['square_current'].grid(column = 4, row = 0, sticky='nw')
-		
 		self.variables["square_position"] = IntVar()
 		self.variables["square_position"].set(0)		
 		self.checks['square_position'] = Checkbutton(fa,text="Square position Test", variable=self.variables["square_position"])
-		self.checks['square_position'].grid(column = 3, row = 0, sticky='nw')
+		self.checks['square_position'].grid(column = 0, row = 0, sticky='nw')
 
 		self.variables["triangle_position"] = IntVar()
 		self.variables["triangle_position"].set(0)		
 		self.checks['triangle_position'] = Checkbutton(fa,text="Triangle position Test", variable=self.variables["triangle_position"])
-		self.checks['triangle_position'].grid(column = 2, row = 0, sticky='nw')
-		
-		self.variables["round_position"] = IntVar()
-		self.variables["round_position"].set(0)		
-		self.checks['round_position'] = Checkbutton(fa,text="Round position Test", variable=self.variables["round_position"])
-		self.checks['round_position'].grid(column = 1, row = 0, sticky='nw')
+		self.checks['triangle_position'].grid(column = 1, row = 0, sticky='nw')
 		
 		fp = LabelFrame(self,text="Position Control")
 		fp.grid(column = 0, row = 1, sticky='nesw')
@@ -124,12 +105,8 @@ class trace_frame(LabelFrame):
 		self.viewports['pwm'].grid(column = 0, row = 1, rowspan=20, sticky="we") #, sticky='wens')
 		self.variables['goal_pwm'] = IntVar()
 		self.variables['goal_pwm'].set(1)
-		self.checks['goal_pwm']= Checkbutton(fpwm,text="Iq Angle",variable=self.variables['goal_pwm'])
+		self.checks['goal_pwm']= Checkbutton(fpwm,text="Field Orientation",variable=self.variables['goal_pwm'])
 		self.checks['goal_pwm'].grid(column = 4, row = 1, sticky='w')
-		self.variables['setpoint_pwm'] = IntVar()
-		self.variables['setpoint_pwm'].set(1)
-		self.checks['setpoint_pwm']= Checkbutton(fpwm,text="Reserved ",variable=self.variables['setpoint_pwm'])
-		self.checks['setpoint_pwm'].grid(column = 4, row = 2, sticky='w')
 
 		self.viewport_current_x = 0
 		self.viewport_start_time = time.time()
@@ -333,27 +310,27 @@ class trace_frame(LabelFrame):
 			if self.variables['goal_velocity'].get() == 1:
 				self.viewports['velocity'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_vel/2-goal_velocity/750.0*self.viewport_size_y_vel/2,
+					self.viewport_size_y_vel/2-goal_velocity/int(self.eeprom.variables['max_velocity_servo'].get())*self.viewport_size_y_vel/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_vel/2-goal_velocity/750.0*self.viewport_size_y_vel/2,
+					self.viewport_size_y_vel/2-goal_velocity/int(self.eeprom.variables['max_velocity_servo'].get())*self.viewport_size_y_vel/2,
 					width=2,
 					fill="#0000FF"
 				)
 			if self.variables['setpoint_velocity'].get() == 1:
 				self.viewports['velocity'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_vel/2-setpoint_velocity/20000.0*self.viewport_size_y_vel/2,
+					self.viewport_size_y_vel/2-setpoint_velocity/int(self.eeprom.variables['max_velocity_servo'].get())*self.viewport_size_y_vel/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_vel/2-setpoint_velocity/20000.0*self.viewport_size_y_vel/2,
+					self.viewport_size_y_vel/2-setpoint_velocity/int(self.eeprom.variables['max_velocity_servo'].get())*self.viewport_size_y_vel/2,
 					width=2,
 					fill="#FF0000"
 				)					
 			if self.variables['present_velocity'].get() == 1:
 				self.viewports['velocity'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_vel/2-present_velocity/20000.0*self.viewport_size_y_vel/2,
+					self.viewport_size_y_vel/2-present_velocity/int(self.eeprom.variables['max_velocity_servo'].get())*self.viewport_size_y_vel/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_vel/2-present_velocity/20000.0*self.viewport_size_y_vel/2,
+					self.viewport_size_y_vel/2-present_velocity/int(self.eeprom.variables['max_velocity_servo'].get())*self.viewport_size_y_vel/2,
 					width=2,
 					fill="#000000"
 				)
@@ -361,27 +338,27 @@ class trace_frame(LabelFrame):
 			if self.variables['goal_current'].get() == 1:
 				self.viewports['current'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_cur/2-goal_torque_current/1000.0*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-goal_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_cur/2-goal_torque_current/1000.0*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-goal_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
 					width=2,
 					fill="#0000FF"
 				)					
 			if self.variables['setpoint_current'].get() == 1:
 				self.viewports['current'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_cur/2-setpoint_torque_current/1000.0*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-setpoint_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_cur/2-setpoint_torque_current/1000.0*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-setpoint_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
 					width=2,
 					fill="#FF0000"
 				)					
 			if self.variables['present_current'].get() == 1:
 				self.viewports['current'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_cur/2-present_torque_current/1000.0*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-present_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_cur/2-present_torque_current/1000.0*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-present_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
 					width=2,
 					fill="#000000"
 				)					
@@ -396,16 +373,7 @@ class trace_frame(LabelFrame):
 				self.viewport_size_y_pwm/2-foc_angle/3.1415*self.viewport_size_y_pwm/2.0,
 				width=2,
 				fill="#0000FF"
-			)					
-			# if self.variables['setpoint_pwm'].get() == 1:
-			# 	self.viewports['pwm'].create_line(
-			# 		self.viewport_current_x,
-			# 		self.viewport_size_y_pwm/2-setpoint_pwm/100.0*self.viewport_size_y_pwm/2.0,
-			# 		self.viewport_current_x+1,
-			# 		self.viewport_size_y_pwm/2-setpoint_pwm/100.0*self.viewport_size_y_pwm/2.0,
-			# 		width=2,
-			# 		fill="#000000"
-			# 	)					
+			)										
 
 			# inc x
 			self.viewport_current_x = self.viewport_current_x + 1 

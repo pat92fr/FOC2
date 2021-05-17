@@ -7,8 +7,13 @@
 
 #include "as5048a.h"
 #include <math.h>
-#include"math_tool.h"
+#include "math_tool.h"
 #include "control_table.h"
+#include "serial.h"
+
+// serial communication (UART2) for TRACEs
+// TODO : use STM32 CUBE MONITOR
+extern HAL_Serial_Handler serial;
 
 // µs TIMER
 extern TIM_HandleTypeDef htim6;
@@ -68,6 +73,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			// Note : use the state when error (present time / position / velocity)
 			// set encoder error
 			regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_STATUS_ERROR;
+			//HAL_Serial_Print(&serial,"e");
 		}
 		else
 		{
@@ -110,18 +116,30 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 {
 	uint16_t delta_t_us = time_us-present_time_us;
+	// position has been received during FOC algorithm execution
+	if(delta_t_us>65500)
+	{
+		// return current position
+		return present_position_rad;
+	}
 	// check old sample error
-	if(delta_t_us>2000) //2ms
+	else if(delta_t_us>2000) //2ms
 	{
 		// set encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING;
+		//HAL_Serial_Print(&serial,"%d %d (%d)\n",(int)time_us,(int)present_time_us, (int)delta_t_us);
+		// return current position (what ever)
+		return present_position_rad;
 	}
+	// normal
 	else
 	{
 		// clear encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING);
+		// compute estimation
+		return present_position_rad + present_velocity_rad*(float)(delta_t_us)/1000000.0f;
 	}
-	return present_position_rad + present_velocity_rad*(float)(delta_t_us)/1000000.0f;
+
 }
 
 float API_AS5048A_Position_Sensor_Get_Radians()
