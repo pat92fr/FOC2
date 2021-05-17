@@ -22,7 +22,7 @@ Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushl
 - [x] Temperature monitoring, with fail-safe on maximum temprature (user configurable) 
 - [x] GUI Tool for configuration and test
 
-# Hardware (commercial off the shelf)
+# 1. Hardware (commercial off the shelf)
 
 ![alt text](https://github.com/pat92fr/FOC2/blob/main/00-Doc/00-Hardware/pf267025_m.jpg?raw=true)
 
@@ -30,7 +30,7 @@ Product page : https://www.st.com/en/evaluation-tools/b-g431b-esc1.html
 
 Cost: approx. 18$ per unit.
 
-# Wiring
+# 2. Wiring
 
 As mentioned in the user manual, the B-G431B-ESC1 Discovery kit is equipped with a USB connector and different pads for communication, such as:
 * U4 USB port for programming and debugging
@@ -56,7 +56,7 @@ For J8, the firmware accept two types of position sensor :
 ![alt text](https://github.com/pat92fr/FOC2/blob/main/00-Doc/01-Wiring/CaptureSTmanual.PNG?raw=true)
 ![alt text](https://github.com/pat92fr/FOC2/blob/main/00-Doc/01-Wiring/ESCwiring%20v0.01.png?raw=true)
 
-# Uploading firmware
+# 3. Uploading firmware
 
 A full erase of the Chip is strongly recommended, to insure proper initialisation of the default configuration (the last Flash page stores PID/FOC configuration).
 
@@ -73,11 +73,19 @@ At lines 40+ of **main.c**,
 ```
 
 
-# CAN protocol
+# 4. CAN protocol
 
-## Control frame formats
+## 4.1. Control frame formats
 
-### Full control frame
+At start-up (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+
+In order to arm the controller, a full control frame with a 0xFFFFFFFFFFFFFFFF payload should be sent. The velocity set-point, the current feed-forward and the Kp and Kd are reset (=0). The position set-point is set to the present rotor position.
+
+To disarm the controller, a full control frame with a 0x000000000000000 payload should be send. The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+
+The controller disarms it-self automatically, when a CAN bus time-out occur (1 second time-out). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+
+### 4.1.1. Full control frame
 
 A full control frame has a 64-bit payload.
 
@@ -89,17 +97,9 @@ Torque | 16b | Torque current feed-forward in mA
 Kp | 8b | Position control
 Kd | 8b | Velocity control
 
-At start-up (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
-
-In order to arm the controller, a full control frame with a 0xFFFFFFFFFFFFFFFF payload should be sent. The velocity set-point, the current feed-forward and the Kp and Kd are reset (=0). The position set-point is set to the present rotor position.
-
-To disarm the controller, a full control frame with a 0x000000000000000 payload should be send. The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
-
-The controller disarms it-self automatically, when a CAN bus time-out occur (1 second time-out). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
-
 ***Warning : A high value of Kp or Kd may damage the actuator.***
 
-### Shortened control frame
+### 4.1.2. Shortened control frames
 
 A 48-bit control frame contains :
 
@@ -122,3 +122,13 @@ A 16-bit control frame contains :
 Field | Length | Value
 ------------ | ------------- | -------------
 Torque | 16b | Torque current feed-forward in mA
+
+## 4.2. Feedback frame formats
+
+A 32-bit feedback frame contains :
+
+Field | Length | Value
+------------ | ------------- | -------------
+Position | 16b | Present position in 1/10 degrees
+Torque | 16b | Present torque current in mA
+
