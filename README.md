@@ -99,4 +99,26 @@ The controller disarms it-self automatically, when a CAN bus time-out occur (1 s
 
 ***Warning : A high value of Kp or Kd may damage the actuator.***
 
+### Shortened control frame
 
+A 48-bit control frame contains :
+
+Field | Length | Value
+------------ | ------------- | -------------
+Position | 16b | Position set-point in 1/10 degrees
+Velocity | 16b | Velocity set-point in degrees per second
+Kp | 8b | Position control
+Kd | 8b | Velocity control
+
+A 32-bit control frame contains :
+
+Field | Length | Value
+------------ | ------------- | -------------
+Position | 16b | Position set-point in 1/10 degrees
+Velocity | 16b | Velocity set-point in degrees per second
+
+A 16-bit control frame contains :
+
+Field | Length | Value
+------------ | ------------- | -------------
+Torque | 16b | Torque current feed-forward in mA
