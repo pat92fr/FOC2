@@ -40,9 +40,19 @@ For J8, the firmware accept two types of position sensor :
 
 # Uploading firmware
 
-A full erase of the Flash is recommended, to insure proper initialisation of the default configuration (last Flash page store PID/FOC configuration).
+A full erase of the Chip is strongly recommended, to insure proper initialisation of the default configuration (the last Flash page stores PID/FOC configuration).
 
 The release configuration of the PID/FOC firmware should be built with CubeIDE, and then uploaded using the USB port of the board.
+
+**A hard-coded setting must be adjusted by user, according its hardware configuration :**
+
+At lines 40+ of **main.c**, 
+```
+// Position sensor type :
+//    "AS5600_I2C"
+//    "AS5048A_PWM"
+#define SENSOR_TYPE AS5048A_PWM
+```
 
 
 
