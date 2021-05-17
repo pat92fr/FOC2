@@ -623,10 +623,13 @@ int main(void)
 //						(int)(API_FOC_Get_Present_Flux_Current())
 //					);
 		}
+
+		// FOC service update
+		API_FOC_Service_Update();
 	}
 	// synchro adjustment
 	float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H])));
-	// FOC update
+	// FOC torque update
 	API_FOC_Torque_Update(
 		present_time_us,
 		setpoint_torque_current_mA,

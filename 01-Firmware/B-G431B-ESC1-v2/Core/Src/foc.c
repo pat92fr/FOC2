@@ -72,6 +72,10 @@ static float present_temperature_C = 0.0f;
 static float average_processing_time_us = 0.0f;
 static uint32_t foc_counter = 0;
 
+void LL_FOC_Update_Temperature();// __attribute__((section (".ccmram")));
+void LL_FOC_Update_Voltage();// __attribute__((section (".ccmram")));
+void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine_theta, float sine_theta );//  __attribute__((section (".ccmram")));
+
 // user API function
 // this function reset state of FOC
 // This function starts peripherals
@@ -368,6 +372,14 @@ int API_FOC_Calibrate()
 	return 0; // calibration success
 }
 
+
+void API_FOC_Service_Update()
+{
+	// check temperature and voltage
+	LL_FOC_Update_Temperature();
+	LL_FOC_Update_Voltage();
+}
+
 // user API function
 // this function process an closed-loop FOC from flux and torque current setpoints
 // this function allow on-the-go synchronization angle adjustment
@@ -398,10 +410,6 @@ void API_FOC_Torque_Update(
 
 		// process absolute position, and compute theta ahead using average processing time and velocity
 		absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
-
-		// check temperature and voltage
-		LL_FOC_Update_Temperature();
-		LL_FOC_Update_Voltage();
 
 		// if ALARM then zeroize currents setpoints
 		if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )

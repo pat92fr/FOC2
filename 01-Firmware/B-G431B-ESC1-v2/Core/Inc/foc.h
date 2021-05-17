@@ -18,10 +18,10 @@ void API_FOC_Init();
 
 int API_FOC_Calibrate();
 
-void LL_FOC_Update_Temperature();// __attribute__((section (".ccmram")));
-void LL_FOC_Update_Voltage();// __attribute__((section (".ccmram")));
-void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine_theta, float sine_theta );//  __attribute__((section (".ccmram")));
+// low priority low frequency process
+void API_FOC_Service_Update();
 
+// high priority high frequency process
 void API_FOC_Torque_Update(
 		uint16_t present_time_us,
 		float setpoint_torque_current_mA,
@@ -29,7 +29,7 @@ void API_FOC_Torque_Update(
 		float phase_synchro_offset_rad, // for manual adjustment during FOC execution
 		uint32_t closed_loop, // 0:open loop 1:closed loop
 		float setpoint_velocity_dps
-);//  __attribute__((section (".ccmram")));
+); //  __attribute__((section (".ccmram")));
 
 void API_FOC_Set_Flux_Angle(
 		float setpoint_electrical_angle_rad,
