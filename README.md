@@ -73,7 +73,7 @@ At lines 40+ of **main.c**,
 ```
 # 4. Local user interface
 
-# 4.1. Red STATUS LED
+## 4.1. Red STATUS LED
 
 The Red STATUS LED is normally OFF.
 
@@ -81,7 +81,7 @@ When an hardware error occurs, the LED is ON.
 
 User may set the LED ON through USB interface.
 
-# 4.2. Button
+## 4.2. Button
 
 A short press on the button starts the calibration sequence. It last a few seconds and the motor turns slowly. Rotor should be free to get a good calibration.
 
