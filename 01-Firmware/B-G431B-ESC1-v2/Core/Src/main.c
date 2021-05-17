@@ -366,17 +366,17 @@ int main(void)
 				  }
 			  }
 
-					  // then reply by a status frame
-					  TxHeader.Identifier = regs[REG_ID]; // each ESC replies with a message identifier = it is own ID
-					  TxData[0] = regs[REG_ID];
-					  TxData[1] = regs[REG_HARDWARE_ERROR_STATUS];
-					  TxData[2] = regs[REG_PRESENT_POSITION_DEG_L];
-					  TxData[3] = regs[REG_PRESENT_POSITION_DEG_H];
-					  TxData[4] = regs[REG_PRESENT_TORQUE_CURRENT_MA_L];
-					  TxData[5] = regs[REG_PRESENT_TORQUE_CURRENT_MA_H];
-					  TxData[6] = regs[REG_PRESENT_VOLTAGE];
-					  TxData[7] = regs[REG_PRESENT_TEMPERATURE];
-					  HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,&TxHeader,TxData);
+//					  // then reply by a status frame
+//					  TxHeader.Identifier = regs[REG_ID]; // each ESC replies with a message identifier = it is own ID
+//					  TxData[0] = regs[REG_ID];
+//					  TxData[1] = regs[REG_HARDWARE_ERROR_STATUS];
+//					  TxData[2] = regs[REG_PRESENT_POSITION_DEG_L];
+//					  TxData[3] = regs[REG_PRESENT_POSITION_DEG_H];
+//					  TxData[4] = regs[REG_PRESENT_TORQUE_CURRENT_MA_L];
+//					  TxData[5] = regs[REG_PRESENT_TORQUE_CURRENT_MA_H];
+//					  TxData[6] = regs[REG_PRESENT_VOLTAGE];
+//					  TxData[7] = regs[REG_PRESENT_TEMPERATURE];
+//					  HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,&TxHeader,TxData);
 
 			  // then reply by a status frame (shortened)
 			  TxHeader.Identifier = 0x10+regs[REG_ID]; // each ESC replies with a message identifier = it is own ID
