@@ -82,7 +82,7 @@ At lines 40+ of **main.c**,
 A full control frame has a 64-bit payload.
 
 Field | Length | Value
------------- | -------------
+------------ | ------------- | -------------
 Position | 16b | Position set-point in 1/10 degrees
 Velocity | 16b | Velocity set-point in degrees per second
 Torque | 16b | Torque current feed-forward in mA
