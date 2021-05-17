@@ -459,13 +459,7 @@ void API_FOC_Torque_Update(
 		float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
 		float const error_Id = setpoint_Id-( closed_loop == 1 ? present_Id_filtered : 0.0f);
 		float Vd = error_Id*Flux_Kp+Flux_Kff*setpoint_Id;
-		Vd = fconstrain_both(Vd,
-#ifdef CSVPWM
-			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]*1.15f // over modulation
-#else
-			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]
-#endif
-		);
+
 		// torque controller (PI+FF) ==> Vq [-max_voltage_V,max_voltage_V]
 		float const setpoint_Iq = setpoint_torque_current_mA;
 		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
@@ -473,13 +467,23 @@ void API_FOC_Torque_Update(
 		float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
 		float const error_Iq = setpoint_Iq-( closed_loop == 1 ? present_Iq_filtered : 0.0f);
 		float Vq = error_Iq*Torque_Kp+Torque_Kff*setpoint_Iq;
-		Vq = fconstrain_both(Vq,
+
+		// VdVq should not exceed present voltage
+		if(present_voltage_V>0) // avoid divide by zero, never true.
+		{
 #ifdef CSVPWM
-			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]*1.15f // over modulation
+			float const Vmax_sq = present_voltage_V*present_voltage_V*1.15f; // over modulation
 #else
-			(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]
+			float const Vmax_sq = present_voltage_V*present_voltage_V;
 #endif
-		);
+			float const Vnorm = Vd*Vd+Vq*Vq;
+			if(Vnorm>Vmax_sq)
+			{
+				float const k = sqrtf(fabsf(Vnorm/Vmax_sq));
+				Vq *= k;
+				Vd *= k;
+			}
+		}
 
 		// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
 		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta);
