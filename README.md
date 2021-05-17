@@ -1,4 +1,4 @@
-# FOC2 Development repository for Smart Brushless Servo 
+# Development repository for Smart Brushless Servo 
 
 PID/FOC Custom Firmware for B-G431B-ESC1 board.
 
