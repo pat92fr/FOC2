@@ -75,15 +75,19 @@ At lines 40+ of **main.c**,
 
 # 4. CAN protocol
 
+The controller accepts CAN frame identifier = 000h + its own ID (user configurable ID).
+
+The controler repies with CAN frame identifier = 010h + its own ID (user configurable ID).
+
 ## 4.1. Control frame formats
 
-At start-up (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+At ***start-up*** (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
 
-In order to arm the controller, a full control frame with a 0xFFFFFFFFFFFFFFFF payload should be sent. The velocity set-point, the current feed-forward and the Kp and Kd are reset (=0). The position set-point is set to the present rotor position.
+In order to ***arm*** the controller, a full control frame with a 0xFFFFFFFFFFFFFFFF payload should be sent. The velocity set-point, the current feed-forward and the Kp and Kd are reset (=0). The position set-point is set to the present rotor position.
 
-To disarm the controller, a full control frame with a 0x000000000000000 payload should be send. The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+To ***disarm*** the controller, a full control frame with a 0x000000000000000 payload should be send. The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
 
-The controller disarms it-self automatically, when a CAN bus time-out occur (1 second time-out). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
+The controller ***disarms it-self*** automatically, when a CAN bus time-out occur (no control frame received for one second). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
 
 ### 4.1.1. Full control frame
 
