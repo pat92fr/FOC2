@@ -273,7 +273,7 @@ int main(void)
 
 	// Handle local MMI
 	// Led STATUS
-	HAL_GPIO_WritePin(STATUS_GPIO_Port,STATUS_Pin,regs[REG_LED]>0?GPIO_PIN_SET:GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(STATUS_GPIO_Port,STATUS_Pin,(regs[REG_LED]>0)||(regs[REG_HARDWARE_ERROR_STATUS]>0)?GPIO_PIN_SET:GPIO_PIN_RESET);
 	// Pressing the button starts calibration
 	if(HAL_GPIO_ReadPin(BUTTON_GPIO_Port,BUTTON_Pin)==GPIO_PIN_RESET)
 	{
