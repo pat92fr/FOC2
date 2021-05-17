@@ -9,17 +9,18 @@ Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushl
 - [x] 16KHz motor PWM 
 - [x] Open-loop and closed-loop FOC algorithm (16KHz)
 - [x] FOC with CSVPWM algorithm 
+- [ ] FOC with Field-Weakening (work in progress)
 - [x] Torque and Flux control (P only), with current limiter
 - [x] Position control with min/max position limiter (4KHz)
 - [x] Velocity control with max velocity limiter (4KHz) 
 - [x] Torque and Flux feed-forward
 - [x] Auto-calibration of electrical angle and motor rotation 
-- [x] USB control interface : (dynamixel like protocol) allowing full-access to control (RAM) and configuration (EERPOM) registers through a GUI tool.
+- [x] USB control interface : dynamixel like protocol allowing full-access to control (RAM) and configuration (EERPOM) 
 - [x] CAN control interface : variable-size control frames (RX) and feedback frames (TX), with fail-safe on bus time-out
 - [x] Power supply voltage monitoring, with min/max operating voltage (user configurable)
 - [x] Position sensor monitoring, with fail-safe on system error and bus time-out
 - [x] Temperature monitoring, with fail-safe on maximum temprature (user configurable) 
-- [ ] Field-Weakening (work in progress)
+- [x] GUI Tool for configuration and test
 
 # Hardware (commercial off the shelf)
 
