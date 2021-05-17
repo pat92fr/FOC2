@@ -89,6 +89,8 @@ To ***disarm*** the controller, a full control frame with a 0x000000000000000 pa
 
 The controller ***disarms it-self*** automatically, when a CAN bus time-out occur (no control frame received for one second). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
 
+For 16-bit fields, low byte first position, high byte second position.
+
 ### 4.1.1. Full control frame
 
 A full control frame has a 64-bit payload.
