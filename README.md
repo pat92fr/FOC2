@@ -7,7 +7,9 @@ Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushl
 ## Characteristics
 
 - [x] 16KHz motor PWM 
+- [ ] 20KHz motor PWM
 - [x] Open-loop and closed-loop FOC algorithm (16KHz)
+- [ ] Faster loop for FOC algorithm (20KHz)
 - [x] FOC with CSVPWM algorithm 
 - [ ] FOC with Field-Weakening (work in progress)
 - [x] Torque and Flux control (P only), with current limiter
