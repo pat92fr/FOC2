@@ -94,8 +94,8 @@ A short press on the button starts the calibration sequence. It last a few secon
 GUI Tool allows to configure and to command the controller.
 
 Connect the ESC to USB port, and change the line 20 in SBSUtility.py according serial device: 
-'''## change COM port here
-servo = servo_protocol2('COM3',1000000)'''
+```## change COM port here
+servo = servo_protocol2('COM3',1000000)```
 
 Run SBSUtility.py
 
