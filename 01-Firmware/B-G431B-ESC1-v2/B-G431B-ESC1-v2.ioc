@@ -331,6 +331,7 @@ PB4.Signal=USART2_RX
 PB3.Locked=true
 PB15.Locked=true
 PA3.Signal=OPAMP1_VINM0
+NVIC.FDCAN1_IT0_IRQn=true\:0\:0\:false\:false\:true\:true\:true
 PB7.GPIO_Speed=GPIO_SPEED_FREQ_VERY_HIGH
 RCC.PLLSourceVirtual=RCC_PLLSOURCE_HSE
 RCC.I2SFreq_Value=160000000
