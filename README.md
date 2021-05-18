@@ -112,6 +112,9 @@ By default, the controller has the ID:1 and USB/VCP baud rate is 1Mbps.
 Field | Default Value | Description
 ------------ | ------------- | -------------
 ID | 1 | ID of the controler (used for both USB and CAN). **Values: 000h < ID < 010h**
+Min Position | 0 | Minimum position in degress, limiting position control
+Max Position | 1000 | Maximum position in degrees, limiting position control
+Max Velocity | 1000 | Maximum velocity in degrees per second, limiting velocity control in both direction
 
 
 
