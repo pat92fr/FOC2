@@ -447,7 +447,7 @@ int main(void)
 					float const error_position_deg = setpoint_position_deg-positionSensor_getDegreeMultiturn();
 					float const kp = (float)regs[REG_GOAL_KP];
 					error_velocity_dps = ALPHA_VELOCITY*(setpoint_velocity_dps-positionSensor_getVelocityDegree())+(1.0f-ALPHA_VELOCITY)*error_velocity_dps;
-					float const kd = (float)regs[REG_GOAL_KD]/100.0f;
+					float const kd = (float)regs[REG_GOAL_KD]/10.0f;
 					float const reg_reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
 					setpoint_torque_current_mA = ALPHA_CURRENT_SETPOINT*reg_reverse*(kp*error_position_deg+kd*error_velocity_dps+torque_feed_forward_ma)
 							+ (1.0f-ALPHA_CURRENT_SETPOINT)*setpoint_torque_current_mA;
