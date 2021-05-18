@@ -89,13 +89,28 @@ A short press on the button starts the calibration sequence. It last a few secon
 
 ***Notice : The number of pole pairs should be configured before starting the calibration sequence. User may set the pole pairs by connecting the ESC to a computer through USB and running the GUI tool.***
 
-# 5. CAN protocol
+# 5. GUI Tool & Controller configuration
+
+GUI Tool allows to configure and to command the controller.
+
+## 5.1 Configuration registers (EEPROM)
+
+*Warning (wear) : Each time a value of an EEPROM register is changed, the Flash is reprogrammed. The number of programming cycles is approx 10.000 to 100.000.*
+
+
+
+
+## 5.2 Control registers (RAM)
+
+
+
+# 6. CAN protocol
 
 The controller accepts CAN frame identifier = 000h + its own ID (user configurable ID).
 
 The controler repies with CAN frame identifier = 010h + its own ID (user configurable ID).
 
-## 5.1. Control frame formats
+## 6.1. Control frame formats
 
 At ***start-up*** (power-on reset), the controller is in IDLE state (motor brake). The position and velocity set-points, the current feed-forward and the Kp and Kd are reset (=0).
 
@@ -107,7 +122,7 @@ The controller ***disarms it-self*** automatically, when a CAN bus time-out occu
 
 For 16-bit fields, low byte first position, high byte second position.
 
-### 5.1.1. Full control frame
+### 6.1.1. Full control frame
 
 A full control frame has a 64-bit payload.
 
@@ -121,7 +136,7 @@ Kd | 8b | Velocity control
 
 ***Warning : A high value of Kp or Kd may damage the actuator.***
 
-### 5.1.2. Shortened control frames
+### 6.1.2. Shortened control frames
 
 A 48-bit control frame contains :
 
@@ -145,7 +160,7 @@ Field | Length | Value
 ------------ | ------------- | -------------
 Torque | 16b | Torque current feed-forward in mA
 
-## 5.2. Feedback frame formats
+## 6.2. Feedback frame formats
 
 A 32-bit feedback frame contains :
 
