@@ -17,9 +17,9 @@ extern "C" {
 // Support AS5048A PWM interface only
 
 void API_AS5048A_Position_Sensor_Init(TIM_HandleTypeDef * htim);
-void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim);
+void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim) __attribute__((section (".ccmram")));
 float API_AS5048A_Position_Sensor_Get_Radians();
-float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us);
+float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us) __attribute__((section (".ccmram")));
 float API_AS5048A_Position_Sensor_Get_Multiturn_Radians();
 float API_AS5048A_Position_Sensor_Get_RPS();
 float API_AS5048A_Position_Sensor_Get_DPS();

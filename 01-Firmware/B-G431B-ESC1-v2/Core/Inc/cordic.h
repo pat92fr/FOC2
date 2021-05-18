@@ -48,7 +48,7 @@ HAL_StatusTypeDef API_CORDIC_Processor_Init()
 	return HAL_CORDIC_Configure(&hcordic, &config);
 }
 
-HAL_StatusTypeDef API_CORDIC_Processor_Update(float theta, float * c, float * s); // __attribute__((section (".ccmram")));
+HAL_StatusTypeDef API_CORDIC_Processor_Update(float theta, float * c, float * s) __attribute__((section (".ccmram")));
 
 HAL_StatusTypeDef API_CORDIC_Processor_Update(float theta, float * c, float * s)
 {

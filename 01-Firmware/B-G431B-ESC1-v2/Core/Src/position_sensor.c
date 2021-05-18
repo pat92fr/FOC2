@@ -91,8 +91,8 @@ int positionSensor_init(e_sensor_type sensor_type)
 	return status;
 }
 
-float positionSensor_getRadiansEstimation(uint16_t time_us){
-
+float positionSensor_getRadiansEstimation(uint16_t time_us)
+{
 	switch(sensor->sensor_type)
 	{
 	case AS5600_I2C:

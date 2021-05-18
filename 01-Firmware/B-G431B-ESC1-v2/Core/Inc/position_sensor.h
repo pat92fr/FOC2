@@ -18,7 +18,7 @@ typedef enum
 } e_sensor_type;
 
 int positionSensor_init(e_sensor_type sensor_type);
-float positionSensor_getRadiansEstimation(uint16_t time_us);
+float positionSensor_getRadiansEstimation(uint16_t time_us) __attribute__((section (".ccmram")));;
 void positionSensor_update(void);
 float positionSensor_getRadians(void);
 float positionSensor_getRadiansMultiturn(void);

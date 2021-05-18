@@ -72,9 +72,9 @@ static float present_temperature_C = 0.0f;
 static float average_processing_time_us = 0.0f;
 static uint32_t foc_counter = 0;
 
-void LL_FOC_Update_Temperature();// __attribute__((section (".ccmram")));
-void LL_FOC_Update_Voltage();// __attribute__((section (".ccmram")));
-void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine_theta, float sine_theta );//  __attribute__((section (".ccmram")));
+void LL_FOC_Update_Temperature() __attribute__((section (".ccmram")));
+void LL_FOC_Update_Voltage() __attribute__((section (".ccmram")));
+void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine_theta, float sine_theta )  __attribute__((section (".ccmram")));
 
 // user API function
 // this function reset state of FOC

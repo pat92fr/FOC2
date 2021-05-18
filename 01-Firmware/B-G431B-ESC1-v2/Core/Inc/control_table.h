@@ -148,6 +148,7 @@ extern "C" {
 #define REG_PROCESSING_TIME 					0xAA //42
 #define REG_FOC_FREQUENCY	 					0xAB //43
 #define REG_PID_FREQUENCY	 					0xAC //44
+#define REG_MLP_FREQUENCY	 					0xAD //45
 
 // SW & HW ERROR
 #define REG_PROTOCOL_CRC_FAIL 					0xB0 //48

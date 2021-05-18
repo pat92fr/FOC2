@@ -135,6 +135,8 @@ static void MX_I2C1_Init(void);
 /* USER CODE BEGIN 0 */
 
 // PWM input capture IT for AS5048A position sensor
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) __attribute__((section (".ccmram")));
+
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
 	if (positionSensor_getType() == AS5048A_PWM)
@@ -144,6 +146,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 }
 
 // ADC IT for motor current sense, and votlage/temperature monitoring
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) __attribute__((section (".ccmram")));
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
 	API_FOC_It(hadc);
@@ -373,6 +377,7 @@ int main(void)
 	float setpoint_flux_current_mA = 0.0f;
 	uint16_t last_mode = REG_CONTROL_MODE_IDLE;
 	uint32_t pid_counter = 0;
+	uint32_t mlp_counter = 0;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -392,7 +397,7 @@ int main(void)
 	if(pid_delta_time_us>=PID_LOOP_PERIOD)
 	{
 		pid_last_time_us+=PID_LOOP_PERIOD;
-		//++pid_counter;
+		++pid_counter;
 		// make alias
 		uint16_t const reg_control_mode = regs[REG_CONTROL_MODE];
 		// process operating mode
@@ -589,6 +594,7 @@ int main(void)
 		regs[REG_PROCESSING_TIME] = (uint8_t)(API_FOC_Get_Processing_Time());
 		regs[REG_FOC_FREQUENCY] = (uint8_t)(API_FOC_Get_Processing_Frequency()/1000.0f);
 		regs[REG_PID_FREQUENCY] = (uint8_t)((float)pid_counter/(float)HAL_GetTick());
+		regs[REG_MLP_FREQUENCY] = (uint8_t)((float)mlp_counter/(float)HAL_GetTick());
 
 		// TRACE
 		static uint32_t counter = 0;
@@ -648,7 +654,7 @@ int main(void)
 		setpoint_flux_current_mA,
 		setpoint_velocity_dps
 	);
-	++pid_counter;
+	++mlp_counter;
   }
   /* USER CODE END 3 */
 }
@@ -1119,12 +1125,13 @@ static void MX_TIM1_Init(void)
   // note : At 160MHz,
   //		htim1.Init.Period = 4999 gives a TIM1 frequency of 32KHz and a PWM (centered-aligned) of 16KHz
   //		htim1.Init.Period = 3999 gives a TIM1 frequency of 40KHz and a PWM (centered-aligned) of 20KHz
+  //		htim1.Init.Period = 3635 gives a TIM1 frequency of 44KHz and a PWM (centered-aligned) of 22KHz
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
-  htim1.Init.Period = 3999;
+  htim1.Init.Period = 3635;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
