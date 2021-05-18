@@ -347,18 +347,18 @@ class trace_frame(LabelFrame):
 			if self.variables['setpoint_current'].get() == 1:
 				self.viewports['current'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_cur/2-setpoint_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-setpoint_torque_current/(100.0+int(self.eeprom.variables['max_current_servo'].get()))*self.viewport_size_y_cur/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_cur/2-setpoint_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-setpoint_torque_current/(100.0+int(self.eeprom.variables['max_current_servo'].get()))*self.viewport_size_y_cur/2,
 					width=2,
 					fill="#FF0000"
 				)					
 			if self.variables['present_current'].get() == 1:
 				self.viewports['current'].create_line(
 					self.viewport_current_x,
-					self.viewport_size_y_cur/2-present_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-present_torque_current/(100.0+int(self.eeprom.variables['max_current_servo'].get()))*self.viewport_size_y_cur/2,
 					self.viewport_current_x+1,
-					self.viewport_size_y_cur/2-present_torque_current/int(self.eeprom.variables['max_current_servo'].get())*self.viewport_size_y_cur/2,
+					self.viewport_size_y_cur/2-present_torque_current/(100.0+int(self.eeprom.variables['max_current_servo'].get()))*self.viewport_size_y_cur/2,
 					width=2,
 					fill="#000000"
 				)					
