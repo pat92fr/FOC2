@@ -119,13 +119,26 @@ Max Current | 500 | Maximum motor current in mA (FOC)
 Max Temperature | 60 | Maximum operating temperaturein °C. **Values: <70**
 Min Voltage | 6 | Minimum operating power supply voltage. **Values: <30**
 Max Voltage | 28 | Maximum operating power supply voltage. **Values: <30**
-
-
-
+Encoder Resolution | 14 | Resolution of the position sensor in bits. **Values: 12 for AS5600, 14 for AS5048A**
+Motor Pole Pairs | 14 | Pole pairs of the motor
+Motor Synchro Angle | 0 | Offset in degrees between physical and electrical angles. **Updated by auto-calibration**
+Motor Phase Inv | 0 | Motor phase inversion. **Values: {0,1} Updated by auto-calibration**
+Field Weakening K | 255 | Field weakening. **Values: 255**
+PID Flux current KP | 400 | Kp of Flux PI FOC.
+PID Torque current KP | 400 | Kp of Torque PI FOC.
 
 ## 5.2 Control registers (RAM)
 
-
+Field | Default Value | Description
+------------ | ------------- | -------------
+LED | 0 | STATUS LED ON/OFF command. **Values: {0:OFF,1:ON}**
+Control Mode | 0 | Operating mode. **Values: {0:IDLE,1:Position/VelocityTorque control}**
+Goal Position | 0 | Goal position in degrees (position control)
+Goal Velocity | 0 | Goal velocity in degrees per second (velocity control)
+FF Torque Current | 0 | Feed-forward torque current in mA (FOC, Iq)
+Goal Flux Current | 0 | Reference flux current in mA (FOC, Idref)
+Position Kp | 0 | Kp of Position/Velocity control
+Velocity Kd | 0 | Kd of Position/Velocity control
 
 # 6. CAN protocol
 
