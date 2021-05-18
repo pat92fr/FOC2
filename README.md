@@ -6,22 +6,22 @@ Follow us on Hackaday.io : https://hackaday.io/project/177578-b-g431b-esc-brushl
 
 ## Characteristics
 
-- [x] 16KHz motor PWM 
+- [x] 16KHz motor PWM
 - [ ] 20KHz motor PWM
 - [x] Open-loop and closed-loop FOC algorithm (16KHz)
 - [ ] Faster loop for FOC algorithm (20KHz)
-- [x] FOC with CSVPWM algorithm 
+- [x] FOC with CSVPWM algorithm
 - [ ] FOC with Field-Weakening (work in progress)
 - [x] Torque and Flux control (P only), with current limiter
 - [x] Position control with min/max position limiter (4KHz)
-- [x] Velocity control with max velocity limiter (4KHz) 
+- [x] Velocity control with max velocity limiter (4KHz)
 - [x] Torque and Flux feed-forward
-- [x] Auto-calibration of electrical angle and motor rotation 
-- [x] USB control interface : dynamixel like protocol allowing full-access to control (RAM) and configuration (EERPOM) 
+- [x] Auto-calibration of electrical angle and motor rotation
+- [x] USB control interface : dynamixel like protocol allowing full-access to control (RAM) and configuration (EERPOM)
 - [x] CAN control interface : variable-size control frames (RX) and feedback frames (TX), with fail-safe on bus time-out
 - [x] Power supply voltage monitoring, with min/max operating voltage (user configurable)
 - [x] Position sensor monitoring, with fail-safe on system error and bus time-out
-- [x] Temperature monitoring, with fail-safe on maximum temprature (user configurable) 
+- [x] Temperature monitoring, with fail-safe on maximum temprature (user configurable)
 - [x] GUI Tool for configuration and test
 
 # 1. Hardware (commercial off the shelf)
@@ -66,7 +66,7 @@ The release configuration of the PID/FOC firmware should be built with CubeIDE, 
 
 **A hard-coded setting must be adjusted by user, according its hardware configuration :**
 
-At lines 40+ of **main.c**, 
+At lines 40+ of **main.c**,
 ```
 // Position sensor type :
 //    "AS5600_I2C"
@@ -93,7 +93,7 @@ A short press on the button starts the calibration sequence. It last a few secon
 
 GUI Tool allows to configure and to command the controller.
 
-Connect the ESC to USB port, and change the line 20 in SBSUtility.py according serial device: 
+Connect the ESC to USB port, and change the line 20 in SBSUtility.py according serial device:
 ```
 ## change COM port here
 servo = servo_protocol2('COM3',1000000)
@@ -206,4 +206,3 @@ Field | Length | Value
 ------------ | ------------- | -------------
 Position | 16b | Present position in 1/10 degrees
 Torque | 16b | Present torque current in mA
-
