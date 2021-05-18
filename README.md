@@ -93,10 +93,25 @@ A short press on the button starts the calibration sequence. It last a few secon
 
 GUI Tool allows to configure and to command the controller.
 
+Connect the ESC to USB port, and change the line 20 in SBSUtility.py according serial device: 
+```
+## change COM port here
+servo = servo_protocol2('COM3',1000000)
+```
+
+Run SBSUtility.py
+
+![alt text](https://github.com/pat92fr/FOC2/blob/main/00-Doc/05-GUI/CaptureGUI.PNG?raw=true)
+
+By default, the controller has the ID:1 and USB/VCP baud rate is 1Mbps.
+
 ## 5.1 Configuration registers (EEPROM)
 
 *Warning (wear) : Each time a value of an EEPROM register is changed, the Flash is reprogrammed. The number of programming cycles is approx 10.000 to 100.000.*
 
+Field | Default Value | Description
+------------ | ------------- | -------------
+ID | 1 | ID of the controler (used for both USB and CAN). **Values: 000h < ID < 010h**
 
 
 
