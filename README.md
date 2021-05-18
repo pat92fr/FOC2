@@ -113,8 +113,13 @@ Field | Default Value | Description
 ------------ | ------------- | -------------
 ID | 1 | ID of the controler (used for both USB and CAN). **Values: 000h < ID < 010h**
 Min Position | 0 | Minimum position in degress, limiting position control
-Max Position | 1000 | Maximum position in degrees, limiting position control
-Max Velocity | 1000 | Maximum velocity in degrees per second, limiting velocity control in both direction
+Max Position | 1000 | Maximum position in degrees (position control)
+Max Velocity | 5000 | Maximum velocity in degrees per second (velocity control)
+Max Current | 500 | Maximum motor current in mA (FOC)
+Max Temperature | 60 | Maximum operating temperaturein °C. **Values: <70**
+Min Voltage | 6 | Minimum operating power supply voltage. **Values: <30**
+Max Voltage | 28 | Maximum operating power supply voltage. **Values: <30**
+
 
 
 
