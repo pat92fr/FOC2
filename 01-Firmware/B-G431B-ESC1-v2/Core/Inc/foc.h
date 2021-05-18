@@ -23,11 +23,8 @@ void API_FOC_Service_Update();
 
 // high priority high frequency process
 void API_FOC_Torque_Update(
-		uint16_t present_time_us,
 		float setpoint_torque_current_mA,
 		float setpoint_flux_current_mA,
-		float phase_synchro_offset_rad, // for manual adjustment during FOC execution
-		uint32_t closed_loop, // 0:open loop 1:closed loop
 		float setpoint_velocity_dps
 ); //  __attribute__((section (".ccmram")));
 

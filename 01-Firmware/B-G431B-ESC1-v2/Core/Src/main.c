@@ -46,10 +46,14 @@
 //    "AS5048A_PWM"
 #define SENSOR_TYPE AS5048A_PWM
 
-// PID Loop period in µs
+// PID loop period in µs
 //  normal setting is 1000us (1KHz)
 //  performance setting is 250 (4KHz)
 #define PID_LOOP_PERIOD 250
+
+// FOC service loop period in µs
+//  normal setting is 5000us (200Hz)
+#define SERVICE_LOOP_PERIOD 5000
 
 // Autocalibration at startup
 //   uncomment this line for calibrating the ESC/MOTOR at startup
@@ -93,11 +97,17 @@ DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
+
+// serial communitation
 HAL_Serial_Handler serial;
+
+// CAN communication, state and fail-safe
 static FDCAN_RxHeaderTypeDef RxHeader;
 static uint8_t RxData[8];
 static FDCAN_TxHeaderTypeDef TxHeader;
 static uint8_t TxData[8];
+bool can_armed = false;
+uint32_t can_last_time = 0;
 
 /* USER CODE END PV */
 
@@ -123,6 +133,8 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// PWM input capture IT for AS5048A position sensor
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
 	if (positionSensor_getType() == AS5048A_PWM)
@@ -131,18 +143,13 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 	}
 }
 
-
-// current sense
+// ADC IT for motor current sense, and votlage/temperature monitoring
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
 	API_FOC_It(hadc);
 }
 
-/**
-  * @brief  Configures the FDCAN.
-  * @param  None
-  * @retval None
-  */
+// CAN configuration (filters)
 static void FDCAN_Config(void)
 {
   FDCAN_FilterTypeDef sFilterConfig;
@@ -192,6 +199,106 @@ static void FDCAN_Config(void)
   TxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
   TxHeader.MessageMarker = 0;
 }
+
+// CAN IT on message receive
+void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
+{
+  if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != 0)
+  {
+  	// Handle CAN communication
+  	while( HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1,FDCAN_RX_FIFO0)!=0)
+
+    /* Retrieve Rx messages from RX FIFO0 */
+    if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+    {
+		// decode message ID=0x000+ID
+		if(RxHeader.Identifier==regs[REG_ID]) // message from host controller
+		{
+		  // can watchdog re-arm
+		  if( can_armed )
+		  {
+			  can_last_time = HAL_GetTick();
+		  }
+		  uint32_t payload_length = RxHeader.DataLength>>16U;
+		  // check payload size = 8
+		  if(can_armed && payload_length==2) // Feed Forward Torque only
+		  {
+			  // decode payload filed
+			  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = RxData[0];
+			  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = RxData[1];
+			  //HAL_Serial_Print(&serial,"CAN (2)\n");
+		  }
+		  else if(can_armed && payload_length==4) // Position and speed, Kp/Kd unchanged
+		  {
+			  // decode payload filed
+			  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
+			  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
+			  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
+			  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
+			  //HAL_Serial_Print(&serial,"CAN (4)\n");
+		  }
+		  else if(can_armed && payload_length==6) // Position and speed, Kp/Kd update
+		  {
+			  // decode payload filed
+			  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
+			  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
+			  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
+			  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
+			  regs[REG_GOAL_KP]  = RxData[4];
+			  regs[REG_GOAL_KD]  = RxData[5];
+			  //HAL_Serial_Print(&serial,"CAN (6)\n");
+		  }
+		  else if(payload_length==8) // position, speed, and torque feed forward, Kp/kd update
+		  {
+			  if( (RxData[0]==0xFF) && (RxData[1]==0xFF) && (RxData[2]==0xFF) && (RxData[3]==0xFF) &&
+				  (RxData[4]==0xFF) && (RxData[5]==0xFF) && (RxData[6]==0xFF) && (RxData[7]==0xFF) )
+			  {
+				  // init watch dog
+				  can_armed = true;
+				  can_last_time = HAL_GetTick();
+				  regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE;
+				  regs[REG_GOAL_POSITION_DEG_L] = 0;
+				  regs[REG_GOAL_POSITION_DEG_H] = 0;
+				  regs[REG_GOAL_VELOCITY_DPS_L] = 0;
+				  regs[REG_GOAL_VELOCITY_DPS_H] = 0;
+				  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = 0;
+				  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
+				  regs[REG_GOAL_KP]  = 0;
+				  regs[REG_GOAL_KD]  = 0;
+				  //HAL_Serial_Print(&serial,"CAN request ARM\n");
+			  }
+			  else if(can_armed)
+			  {
+				  // decode payload filed
+				  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
+				  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
+				  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
+				  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
+				  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = RxData[4];
+				  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = RxData[5];
+				  regs[REG_GOAL_KP]  = RxData[6];
+				  regs[REG_GOAL_KD]  = RxData[7];
+				  //HAL_Serial_Print(&serial,"CAN (8)\n");
+			  }
+		  }
+
+		  // then reply by a status frame (shortened)
+		  TxHeader.Identifier = 0x10+regs[REG_ID]; // each ESC replies with a message identifier = it is own ID
+		  TxHeader.DataLength = FDCAN_DLC_BYTES_4;
+		  TxData[0] = regs[REG_PRESENT_POSITION_DEG_L];
+		  TxData[1] = regs[REG_PRESENT_POSITION_DEG_H];
+		  TxData[2] = regs[REG_PRESENT_TORQUE_CURRENT_MA_L];
+		  TxData[3] = regs[REG_PRESENT_TORQUE_CURRENT_MA_H];
+		  //TxData[4] = regs[REG_HARDWARE_ERROR_STATUS];
+		  //TxData[5] = regs[REG_PRESENT_VOLTAGE];
+		  //TxData[6] = regs[REG_PRESENT_TEMPERATURE];
+		  //TxData[7] = ....
+		  HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,&TxHeader,TxData);
+		}
+    }
+  }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -236,12 +343,8 @@ int main(void)
   MX_FDCAN1_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start(&htim6); // 1us base timer
-  uint16_t present_time_us = __HAL_TIM_GET_COUNTER(&htim6);
-  uint16_t last_time_us = present_time_us;
+  HAL_TIM_Base_Start(&htim6); // 1us base time
   API_FOC_Init();
-  HAL_Serial_Init(&huart2,&serial);
-  //HAL_Serial_Print(&serial,"RESET!\n");
   if(eeprom_empty())
 	factory_reset_eeprom_regs();
   load_eeprom_regs();
@@ -249,21 +352,26 @@ int main(void)
   FDCAN_Config();
   positionSensor_init(SENSOR_TYPE);
   positionSensor_update();
+  API_FOC_Service_Update();
 #ifdef PERFORM_AUTO_CALIBRATION_AT_STARTUP
-	API_FOC_Calibrate();
+  API_FOC_Calibrate();
 #endif
+  HAL_Serial_Init(&huart2,&serial);
+//HAL_Serial_Print(&serial,"RESET!\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	uint16_t present_time_us = __HAL_TIM_GET_COUNTER(&htim6);
+	uint16_t pid_last_time_us = present_time_us;
+	uint16_t service_last_time_us = present_time_us;
 	float setpoint_position_deg = 0.0f;
 	float setpoint_velocity_dps = 0.0f;
 	float error_velocity_dps = 0.0f;
 	float setpoint_torque_current_mA = 0.0f;
 	float setpoint_flux_current_mA = 0.0f;
 	uint16_t last_mode = REG_CONTROL_MODE_IDLE;
-	bool can_armed = false;
-	uint32_t can_last_time = 0;
 	uint32_t pid_counter = 0;
   while (1)
   {
@@ -271,132 +379,6 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	// Handle local MMI
-	// Led STATUS
-	HAL_GPIO_WritePin(STATUS_GPIO_Port,STATUS_Pin,(regs[REG_LED]>0)||(regs[REG_HARDWARE_ERROR_STATUS]>0)?GPIO_PIN_SET:GPIO_PIN_RESET);
-	// Pressing the button starts calibration
-	if(HAL_GPIO_ReadPin(BUTTON_GPIO_Port,BUTTON_Pin)==GPIO_PIN_RESET)
-	{
-		// perform calibration
-		API_FOC_Calibrate();
-		// reset state
-		last_mode = REG_CONTROL_MODE_IDLE;
-		can_armed = false;
-		setpoint_position_deg = 0.0f;
-		setpoint_velocity_dps = 0.0f;
-		error_velocity_dps = 0.0f;
-		setpoint_torque_current_mA = 0.0f;
-		setpoint_flux_current_mA = 0.0f;
-		// update RAM
-		regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
-	}
-
-	// Handle CAN communication
-	while( HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1,FDCAN_RX_FIFO0)!=0)
-	{
-	  HAL_StatusTypeDef rx_result = HAL_FDCAN_GetRxMessage(&hfdcan1,FDCAN_RX_FIFO0,&RxHeader,RxData);
-	  if(rx_result==HAL_OK)
-	  {
-		  // decode message ID=0x000+ID
-		  if(RxHeader.Identifier==regs[REG_ID]) // message from host controller
-		  {
-			  // can watchdog re-arm
-			  if( can_armed )
-			  {
-				  can_last_time = HAL_GetTick();
-			  }
-			  uint32_t payload_length = RxHeader.DataLength>>16U;
-			  // check payload size = 8
-			  if(can_armed && payload_length==2) // Feed Forward Torque only
-			  {
-				  // decode payload filed
-				  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = RxData[0];
-				  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = RxData[1];
-				  //HAL_Serial_Print(&serial,"CAN (2)\n");
-			  }
-			  else if(can_armed && payload_length==4) // Position and speed, Kp/Kd unchanged
-			  {
-				  // decode payload filed
-				  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
-				  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
-				  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
-				  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
-				  //HAL_Serial_Print(&serial,"CAN (4)\n");
-			  }
-			  else if(can_armed && payload_length==6) // Position and speed, Kp/Kd update
-			  {
-				  // decode payload filed
-				  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
-				  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
-				  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
-				  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
-				  regs[REG_GOAL_KP]  = RxData[4];
-				  regs[REG_GOAL_KD]  = RxData[5];
-				  //HAL_Serial_Print(&serial,"CAN (6)\n");
-			  }
-			  else if(payload_length==8) // position, speed, and torque feed forward, Kp/kd update
-			  {
-				  if( (RxData[0]==0xFF) && (RxData[1]==0xFF) && (RxData[2]==0xFF) && (RxData[3]==0xFF) &&
-					  (RxData[4]==0xFF) && (RxData[5]==0xFF) && (RxData[6]==0xFF) && (RxData[7]==0xFF) )
-				  {
-					  // init watch dog
-					  can_armed = true;
-					  can_last_time = HAL_GetTick();
-					  regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE;
-					  regs[REG_GOAL_POSITION_DEG_L] = 0;
-					  regs[REG_GOAL_POSITION_DEG_H] = 0;
-					  regs[REG_GOAL_VELOCITY_DPS_L] = 0;
-					  regs[REG_GOAL_VELOCITY_DPS_H] = 0;
-					  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = 0;
-					  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
-					  regs[REG_GOAL_KP]  = 0;
-					  regs[REG_GOAL_KD]  = 0;
-					  //HAL_Serial_Print(&serial,"CAN request ARM\n");
-				  }
-				  else if(can_armed)
-				  {
-					  // decode payload filed
-					  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
-					  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
-					  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
-					  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
-					  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = RxData[4];
-					  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = RxData[5];
-					  regs[REG_GOAL_KP]  = RxData[6];
-					  regs[REG_GOAL_KD]  = RxData[7];
-					  //HAL_Serial_Print(&serial,"CAN (8)\n");
-				  }
-			  }
-
-//					  // then reply by a status frame
-//					  TxHeader.Identifier = regs[REG_ID]; // each ESC replies with a message identifier = it is own ID
-//					  TxData[0] = regs[REG_ID];
-//					  TxData[1] = regs[REG_HARDWARE_ERROR_STATUS];
-//					  TxData[2] = regs[REG_PRESENT_POSITION_DEG_L];
-//					  TxData[3] = regs[REG_PRESENT_POSITION_DEG_H];
-//					  TxData[4] = regs[REG_PRESENT_TORQUE_CURRENT_MA_L];
-//					  TxData[5] = regs[REG_PRESENT_TORQUE_CURRENT_MA_H];
-//					  TxData[6] = regs[REG_PRESENT_VOLTAGE];
-//					  TxData[7] = regs[REG_PRESENT_TEMPERATURE];
-//					  HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,&TxHeader,TxData);
-
-			  // then reply by a status frame (shortened)
-			  TxHeader.Identifier = 0x10+regs[REG_ID]; // each ESC replies with a message identifier = it is own ID
-			  TxHeader.DataLength = FDCAN_DLC_BYTES_4;
-			  TxData[0] = regs[REG_PRESENT_POSITION_DEG_L];
-			  TxData[1] = regs[REG_PRESENT_POSITION_DEG_H];
-			  TxData[2] = regs[REG_PRESENT_TORQUE_CURRENT_MA_L];
-			  TxData[3] = regs[REG_PRESENT_TORQUE_CURRENT_MA_H];
-			  //TxData[4] = regs[REG_HARDWARE_ERROR_STATUS];
-			  //TxData[5] = regs[REG_PRESENT_VOLTAGE];
-			  //TxData[6] = regs[REG_PRESENT_TEMPERATURE];
-			  //TxData[7] = ....
-			  HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,&TxHeader,TxData);
-		  }
-	  }
-	  //else
-	  // CAN error handler
-	}
 	// CAN bus watchdog (time-out=1s)
 	if( (HAL_GetTick()>can_last_time+1000) && can_armed )
 	{
@@ -404,20 +386,13 @@ int main(void)
 		regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
 	}
 
-	// Handle serial communication
-	while(HAL_Serial_Available(&serial))
-	{
-	  char c = HAL_Serial_GetChar(&serial);
-	  packet_handler(c);
-	}
-
 	// 1 to 4Khz low priority process
 	present_time_us = __HAL_TIM_GET_COUNTER(&htim6);
-	int16_t const delta_time_us = present_time_us-last_time_us;
-	if(delta_time_us>=PID_LOOP_PERIOD)
+	uint16_t const pid_delta_time_us = present_time_us-pid_last_time_us;
+	if(pid_delta_time_us>=PID_LOOP_PERIOD)
 	{
-		last_time_us+=PID_LOOP_PERIOD;
-		++pid_counter;
+		pid_last_time_us+=PID_LOOP_PERIOD;
+		//++pid_counter;
 		// make alias
 		uint16_t const reg_control_mode = regs[REG_CONTROL_MODE];
 		// process operating mode
@@ -626,20 +601,54 @@ int main(void)
 //					);
 		}
 
+
+	}
+
+	// low priority low frequency
+	uint16_t const service_delta_time_us = present_time_us-service_last_time_us;
+	if(service_delta_time_us>=SERVICE_LOOP_PERIOD)
+	{
+		service_last_time_us+=SERVICE_LOOP_PERIOD;
+
 		// FOC service update
 		API_FOC_Service_Update();
+
+		// Handle local MMI
+		// Led STATUS
+		HAL_GPIO_WritePin(STATUS_GPIO_Port,STATUS_Pin,(regs[REG_LED]>0)||(regs[REG_HARDWARE_ERROR_STATUS]>0)?GPIO_PIN_SET:GPIO_PIN_RESET);
+
+		// Pressing the button starts calibration
+		if(HAL_GPIO_ReadPin(BUTTON_GPIO_Port,BUTTON_Pin)==GPIO_PIN_RESET)
+		{
+			// perform calibration
+			API_FOC_Calibrate();
+			// reset state
+			last_mode = REG_CONTROL_MODE_IDLE;
+			can_armed = false;
+			setpoint_position_deg = 0.0f;
+			setpoint_velocity_dps = 0.0f;
+			error_velocity_dps = 0.0f;
+			setpoint_torque_current_mA = 0.0f;
+			setpoint_flux_current_mA = 0.0f;
+			// update RAM
+			regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
+		}
+
+		// Handle serial communication
+		while(HAL_Serial_Available(&serial))
+		{
+		  char c = HAL_Serial_GetChar(&serial);
+		  packet_handler(c);
+		}
 	}
-	// synchro adjustment
-	float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H])));
+
 	// FOC torque update
 	API_FOC_Torque_Update(
-		present_time_us,
 		setpoint_torque_current_mA,
 		setpoint_flux_current_mA,
-		phase_synchro_offset_rad,
-		regs[REG_GOAL_CLOSED_LOOP], // open loop if 0, closed loop if 1
 		setpoint_velocity_dps
 	);
+	++pid_counter;
   }
   /* USER CODE END 3 */
 }
@@ -733,7 +742,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -828,7 +837,7 @@ static void MX_ADC2_Init(void)
   hadc2.Init.DiscontinuousConvMode = DISABLE;
   hadc2.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
   hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
-  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.DMAContinuousRequests = ENABLE;
   hadc2.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc2.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc2) != HAL_OK)
@@ -1107,11 +1116,15 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
+  // note : At 160MHz,
+  //		htim1.Init.Period = 4999 gives a TIM1 frequency of 32KHz and a PWM (centered-aligned) of 16KHz
+  //		htim1.Init.Period = 3999 gives a TIM1 frequency of 40KHz and a PWM (centered-aligned) of 20KHz
+
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
-  htim1.Init.Period = 4999;
+  htim1.Init.Period = 3999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;

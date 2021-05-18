@@ -145,7 +145,7 @@ void LL_FOC_Update_Voltage()
 	{
 		static float const R68 = 169.0f; // kohm
 		static float const R76 = 18.0f; // kohm
-		static float const alpha_voltage = 0.01f;
+		static float const alpha_voltage = 0.05f;
 		present_voltage_V = (vbus_input_adc/4096.0f*3.3f*(R68+R76)/R76)*alpha_voltage+(1.0f-alpha_voltage)*present_voltage_V;
 	}
 
@@ -390,11 +390,8 @@ void API_FOC_Service_Update()
 //    this may require adjustment of the Kp and Ki of both flux and torque PI regulator
 // note : with a 5008 motor, there is no need for Ki and Kff in both flux and torque PI
 void API_FOC_Torque_Update(
-		uint16_t present_time_us,
 		float setpoint_torque_current_mA,
 		float setpoint_flux_current_mA,
-		float phase_synchro_offset_rad,
-		uint32_t closed_loop,
 		float setpoint_velocity_dps
 )
 {
@@ -435,6 +432,7 @@ void API_FOC_Torque_Update(
 		float const phase_offset_rad = DEGREES_TO_RADIANS((int16_t)(MAKE_SHORT(regs[REG_MOTOR_SYNCHRO_L],regs[REG_MOTOR_SYNCHRO_H])));
 		float const reg_pole_pairs = regs[REG_MOTOR_POLE_PAIRS];
 		float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
+		float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
 		float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
 		static float cosine_theta = 0.0f;
 		static float sine_theta = 0.0f;
@@ -460,7 +458,7 @@ void API_FOC_Torque_Update(
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
 		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
-		float const error_Id = setpoint_Id-( closed_loop == 1 ? present_Id_filtered : 0.0f);
+		float const error_Id = setpoint_Id-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
 		float Vd = error_Id*Flux_Kp; //+Flux_Kff*setpoint_Id;
 
 		// torque controller (PI+FF) ==> Vq [-max_voltage_V,max_voltage_V]
@@ -468,7 +466,7 @@ void API_FOC_Torque_Update(
 		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 		//float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
 		//float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
-		float const error_Iq = setpoint_Iq-( closed_loop == 1 ? present_Iq_filtered : 0.0f);
+		float const error_Iq = setpoint_Iq-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_filtered : 0.0f);
 		float Vq = error_Iq*Torque_Kp; //+Torque_Kff*setpoint_Iq;
 
 		// VdVq should not exceed present voltage
@@ -572,8 +570,6 @@ void API_FOC_It(ADC_HandleTypeDef *hadc)
 		{
 			motor_current_input_adc_offset[0] = ALPHA_CURRENT_SENSE_OFFSET*(float)(ADC1_DMA[1]) + (1.0f-ALPHA_CURRENT_SENSE_OFFSET)*motor_current_input_adc_offset[0];
 		}
-		// restart ADC
-		HAL_ADC_Start_DMA(&hadc1,(uint32_t*)ADC1_DMA,5);
 	}
 	if(hadc==&hadc2)
 	{
@@ -589,8 +585,6 @@ void API_FOC_It(ADC_HandleTypeDef *hadc)
 			motor_current_input_adc_offset[1] = ALPHA_CURRENT_SENSE_OFFSET*(float)(ADC2_DMA[1]) + (1.0f-ALPHA_CURRENT_SENSE_OFFSET)*motor_current_input_adc_offset[1];
 			motor_current_input_adc_offset[2] = ALPHA_CURRENT_SENSE_OFFSET*(float)(ADC2_DMA[2]) + (1.0f-ALPHA_CURRENT_SENSE_OFFSET)*motor_current_input_adc_offset[2];
 		}
-		// restart ADC
-		HAL_ADC_Start_DMA(&hadc2,(uint32_t*)ADC2_DMA,3);
 	}
 }
 

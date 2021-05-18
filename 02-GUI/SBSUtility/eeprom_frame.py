@@ -61,7 +61,7 @@ class eeprom_frame(LabelFrame):
 		self.gui_entry("PID Flux Current KP", "pid_flux_current_kp", 0, True, True, True, 0x3A, 1, 2 )
 		#self.gui_entry("PID Flux Current KI", "pid_flux_current_ki", 0, True, True, True, 0x3C, 1, 2 )
 		#self.gui_entry("PID Flux Current KFF", "pid_flux_current_kff", 0, True, True, True, 0x3E, 1, 2 )
-		self.gui_spacer("---")
+		#self.gui_spacer("---")
 		self.gui_entry("PID Torque Current KP", "pid_torque_current_kp", 0, True, True, True, 0x40, 1, 2 )
 		#self.gui_entry("PID Torque Current KI", "pid_torque_current_ki", 0, True, True, True, 0x42, 1, 2 )
 		#self.gui_entry("PID Torque Current KFF", "pid_torque_current_kff", 0, True, True, True, 0x44, 1, 2 )
