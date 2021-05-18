@@ -137,8 +137,10 @@ Goal Position | 0 | Goal position in degrees (position control)
 Goal Velocity | 0 | Goal velocity in degrees per second (velocity control)
 FF Torque Current | 0 | Feed-forward torque current in mA (FOC, Iq)
 Goal Flux Current | 0 | Reference flux current in mA (FOC, Idref)
-Position Kp | 0 | Kp of Position/Velocity control
-Velocity Kd | 0 | Kd of Position/Velocity control
+Position Kp | 0 | Kp of Position/Velocity control. **Values: 0<Kp<255**
+Velocity Kd | 0 | Kd of Position/Velocity control. **Values: 0<Kp<255**
+
+**Warning : A high value of Kp or Kd may damage the actuator.**
 
 # 6. CAN protocol
 
