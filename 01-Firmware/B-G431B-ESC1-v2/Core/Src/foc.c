@@ -20,7 +20,7 @@
 #include <math.h>
 
 // hard-coded settings
-#define ALPHA_CURRENT_DQ			0.05f 	// low pass filter for present Id and presetn Iq estimation
+#define ALPHA_CURRENT_DQ			0.01f 	// was 0.05 low pass filter for present Id and present Iq estimation
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
 #define MAX_PWM_DUTY_CYCLE 			0.98f 	// %
 #define MIN_PWM_DUTY_CYCLE 			0.02f 	// %
@@ -59,6 +59,7 @@ static float motor_current_input_adc_mA[3] = {0.034f,0.034f,0.034f};
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
 static float present_Id_filtered = 0.0f;
 static float present_Iq_filtered = 0.0f;
+static float ifw = 0.0f;
 // foc feedback
 static float absolute_position_rad = 0.0f;
 // foc analog measure
@@ -453,7 +454,7 @@ void API_FOC_Torque_Update(
 		present_Iq_filtered = ALPHA_CURRENT_DQ*present_Iq+(1.0f-ALPHA_CURRENT_DQ)*present_Iq_filtered;
 
 		// flux controller (PI+FF) ==> Vd [-max_voltage_V,max_voltage_V]
-		float const setpoint_Id = setpoint_flux_current_mA;
+		float const setpoint_Id = setpoint_flux_current_mA+ifw;
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
 		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
@@ -467,6 +468,17 @@ void API_FOC_Torque_Update(
 		//float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
 		float const error_Iq = setpoint_Iq-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_filtered : 0.0f);
 		float Vq = error_Iq*Torque_Kp; //+Torque_Kff*setpoint_Iq;
+
+
+
+		// flux weakening
+		float const Vs = sqrtf(Vd*Vd+Vq*Vq);
+		ifw = fminf(0.0f, (present_voltage_V-Vs)*(float)(regs[REG_FIELD_WEAKENING_K]));
+		float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
+		ifw = fmaxf(ifw,-reg_max_current_ma*0.25f);
+		//ifw = -Vs; // DEBUG
+
+
 
 		// VdVq should not exceed present voltage
 		if(present_voltage_V>0) // avoid divide by zero, never true.
@@ -484,6 +496,9 @@ void API_FOC_Torque_Update(
 				Vd *= k;
 			}
 		}
+
+
+
 
 		// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
 		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta);
@@ -530,6 +545,11 @@ float API_FOC_Get_Present_Torque_Current()
 float API_FOC_Get_Present_Flux_Current()
 {
 	return present_Id_filtered;
+}
+
+float API_FOC_Get_Setpoint_Flux_Current()
+{
+	return ifw;
 }
 
 float API_FOC_Get_Present_Voltage()

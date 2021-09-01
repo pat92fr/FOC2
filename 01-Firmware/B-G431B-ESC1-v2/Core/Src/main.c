@@ -458,7 +458,9 @@ int main(void)
 					float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 					setpoint_flux_current_mA = goal_flux_current_mA;
 					// if target speed not reached, process field weakening :
-					if(
+					/*
+					 *
+					 if(
 							( (setpoint_velocity_dps>1000.0f) && (setpoint_velocity_dps>positionSensor_getVelocityDegree()) ) ||
 							( (setpoint_velocity_dps<1000.0f) && (setpoint_velocity_dps<positionSensor_getVelocityDegree()) )
 					)
@@ -466,6 +468,7 @@ int main(void)
 						float const fw = -fmax((fabsf(setpoint_velocity_dps)-1000.0f),0.0f)/(float)(regs[REG_FIELD_WEAKENING_K]+1); // FW start à 1000dps/166rpm
 						setpoint_flux_current_mA+=fw;
 					}
+					*/
 				}
 			}
 			break;
@@ -589,8 +592,14 @@ int main(void)
 		regs[REG_SETPOINT_VELOCITY_DPS_H] = HIGH_BYTE((int16_t)(setpoint_velocity_dps*1.0f));
 		regs[REG_SETPOINT_TORQUE_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_torque_current_mA*1.0f));
 		regs[REG_SETPOINT_TORQUE_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_torque_current_mA*1.0f));
-		regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
-		regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
+
+		//regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
+		//regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
+		regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(API_FOC_Get_Setpoint_Flux_Current()*1.0f));
+		regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(API_FOC_Get_Setpoint_Flux_Current()*1.0f));
+		// test new FW
+
+
 		regs[REG_PROCESSING_TIME] = (uint8_t)(API_FOC_Get_Processing_Time());
 		regs[REG_FOC_FREQUENCY] = (uint8_t)(API_FOC_Get_Processing_Frequency()/1000.0f);
 		regs[REG_PID_FREQUENCY] = (uint8_t)((float)pid_counter/(float)HAL_GetTick());

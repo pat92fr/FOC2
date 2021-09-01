@@ -41,6 +41,7 @@ void API_FOC_Set_Flux_Velocity(
 
 float API_FOC_Get_Present_Torque_Current();
 float API_FOC_Get_Present_Flux_Current();
+float API_FOC_Get_Setpoint_Flux_Current();
 float API_FOC_Get_Present_Voltage();
 float API_FOC_Get_Present_Temp();
 float API_FOC_Get_Processing_Time();
