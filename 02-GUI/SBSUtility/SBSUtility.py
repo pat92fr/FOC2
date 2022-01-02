@@ -16,8 +16,13 @@ import cProfile
 
 
 def main():
+
+
+
+
 	## change COM port here
-	servo = servo_protocol2('COM16',1000000) ##eeprom baud = 3
+	servo = servo_protocol2() ##eeprom baud = 3
+	#servo = servo_protocol2('COM34',1000000) ##eeprom baud = 3
 
 	window = Tk()
 	window.title(" MyServoGUI")
