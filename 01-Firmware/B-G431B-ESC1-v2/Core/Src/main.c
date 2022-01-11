@@ -41,6 +41,10 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+// CAN Bus termination
+#define CAN_BUS_TERMINATION_OFF
+#define CAN_BUS_TERMINATION_ON
+
 // Position sensor type :
 //    "AS5600_I2C"
 //    "AS5048A_PWM"
@@ -179,7 +183,11 @@ static void FDCAN_Config(void)
   }
 
   HAL_GPIO_WritePin(CAN_SHDN_GPIO_Port, CAN_SHDN_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(CAN_TERM_GPIO_Port, CAN_TERM_Pin, GPIO_PIN_RESET); // SET means activating R120
+#ifdef CAN_BUS_TERMINATION_ON
+  HAL_GPIO_WritePin(CAN_TERM_GPIO_Port, CAN_TERM_Pin, GPIO_PIN_SET); // SET means activating R120 for CAN bus termination
+#else
+  HAL_GPIO_WritePin(CAN_TERM_GPIO_Port, CAN_TERM_Pin, GPIO_PIN_RESET); // RESET means no bus termination
+#endif
 
   /* Start the FDCAN module */
   if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK)
