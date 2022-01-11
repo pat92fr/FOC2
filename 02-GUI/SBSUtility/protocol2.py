@@ -70,14 +70,8 @@ def updateCRC(crc_accum, data_blk_ptr, data_blk_size):
 
 class servo_protocol2:
 
-	def __init__(self,port,baud):
+	def __init__(self):
 		self.serial = serial.Serial()
-		self.serial.baudrate = baud
-		self.serial.port = port
-		self.serial.open()
-		if self.serial.is_open:
-			print("Serial openend...")
-
 		self.timeout_input = 20
 
 		# recv packet
@@ -87,8 +81,27 @@ class servo_protocol2:
 		self.rx_packet_payload_length = 0
 
 	def __del__(self):
+		if self.serial:
+			self.serial.close()
+			print("Serial "+ self.serial.port + " closed!")
+
+	# helper
+
+	def open(self,port,baud):
+		if self.serial:
+			self.serial.close()
+		self.serial.baudrate = baud
+		self.serial.port = port
+		self.serial.open()
+		if self.serial.is_open:
+			print("Serial "+ self.serial.port + " openend...")
+
+	def opened(self):
+		return self.serial.is_open
+
+	def close(self):
 		self.serial.close()
-		print("Serial closed!")
+		print("Serial "+ self.serial.port + " closed!")
 
 	# base instructions 
 

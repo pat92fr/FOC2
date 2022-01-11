@@ -30,8 +30,8 @@ ENTRY(Reset_Handler)
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
-_Min_Heap_Size = 0x200 ;	/* required amount of heap  */
-_Min_Stack_Size = 0x400 ;	/* required amount of stack */
+_Min_Heap_Size = 0x200;	/* required amount of heap  */
+_Min_Stack_Size = 0x400;	/* required amount of stack */
 
 /* Memories definition */
 MEMORY
@@ -51,7 +51,7 @@ SECTIONS
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
   } >FLASH
-  
+
 /*--- New CCMRAM linker section definition ---*/
  _siccmram = LOADADDR(.ccmram);
  /* CCMRAM section */
@@ -64,7 +64,8 @@ SECTIONS
  . = ALIGN(4);
  _eccmram = .; /* define a global symbols at ccmram end */
  } >CCMRAM AT> FLASH
-  /*--- End of CCMRAM linker section definition ---*/
+ /*--- End of CCMRAM linker section definition ---*/
+
 
   /* The program code and other data into "FLASH" Rom type memory */
   .text :

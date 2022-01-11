@@ -175,6 +175,13 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 	float const Vbeta = Vq * cosine_theta + Vd * sine_theta;
 
 	// convert (Valpha,Vbeta) [-max_voltage_V,max_voltage_V] to (Va,Vb,Vc) [-max_voltage_V,max_voltage_V] [Inverse Clarke Transformation]
+
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+
 	static float const sqrt3 = sqrtf(3.0f);
 	float const Va = Valpha;
 	float const Vb = (-Valpha+sqrt3*Vbeta)/2.0f;
@@ -187,6 +194,16 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 #else
 	float const Vneutral = 0.0f;
 #endif
+
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+
+	//// TODO FIX : fconstrain(  (Vx-Vneutral)/present_voltage_V+0.5f, MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
+	//// TODO FIX : fconstrain(  (Vx-Vneutral)/present_voltage_V+0.5f, MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
+	//// TODO FIX : fconstrain(  (Vx-Vneutral)/present_voltage_V+0.5f, MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
 
 	// convert (Va,Vb,Vc) [-max_voltage_V,max_voltage_V] to PWM duty cycles % [0.0 1.0]
 	float const duty_cycle_PWMa = fconstrain(((Va-Vneutral)/present_voltage_V+1.0f)*0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE); // [0 1]
@@ -239,6 +256,14 @@ void API_FOC_Set_Flux_Angle(
 	static float sine_theta = 0.0f;
 	API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
+
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+
+
 	// compute (Vd,Vq) [-max_voltage_V,max_voltage_V]
 	float const Vd = fconstrain(setpoint_flux_voltage_V,-regs[REG_HIGH_VOLTAGE_LIMIT_VALUE],regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]); // torque setpoint open loop
 	float const Vq = 0.0f; // no torque
@@ -272,6 +297,12 @@ void API_FOC_Set_Flux_Velocity(
 	static float cosine_theta = 0.0f;
 	static float sine_theta = 0.0f;
 	API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
+
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+	//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
 
 	// compute (Vd,Vq) [-max_voltage_V,max_voltage_V]
 	float const Vd = fconstrain(setpoint_flux_voltage_V,-regs[REG_HIGH_VOLTAGE_LIMIT_VALUE],regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]); // torque setpoint open loop
@@ -479,6 +510,11 @@ void API_FOC_Torque_Update(
 		//ifw = -Vs; // DEBUG
 
 
+		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
 
 		// VdVq should not exceed present voltage
 		if(present_voltage_V>0) // avoid divide by zero, never true.
