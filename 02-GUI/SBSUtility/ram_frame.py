@@ -65,6 +65,9 @@ class ram_frame(LabelFrame):
 		#button_update = Button(self,text="Update",command = self.read_all)
 		#button_update.grid(column = 2, row = 0, sticky='we')
 
+		self.present_torque_current 	= 0
+		self.present_flux_current 	= 0
+
 		self.read_all()
 
 	def gui_entry(self,text_label,variable_name,variable_value,has_local,has_servo,has_callback,callback_reg_address,callback_reg_scale,callback_reg_size):
@@ -155,10 +158,10 @@ class ram_frame(LabelFrame):
 				present_velocity 	= float(sign(result[18] + (result[19]<<8)))
 				goal_torque_current 	= float(sign(result[7] + (result[8]<<8)))
 				setpoint_torque_current = float(sign(result[36] + (result[37]<<8)))
-				present_torque_current 	= float(sign(result[20] + (result[21]<<8)))
+				self.present_torque_current 	= 0.99*self.present_torque_current+0.01*float(sign(result[20] + (result[21]<<8)))
 				goal_flux_current 		= float(sign( result[9] + (result[10]<<8)))
 				setpoint_flux_current 	= float(sign( result[38] + (result[39]<<8)))
-				present_flux_current 	= float(sign( result[22] + (result[23]<<8)))
+				self.present_flux_current 	= 0.99*self.present_flux_current+0.01*float(sign( result[22] + (result[23]<<8)))
 				kp = result[11]
 				kd = result[12]
 				goal_synchro_offset		= float(sign( result[13] + (result[14]<<8)))
@@ -172,10 +175,10 @@ class ram_frame(LabelFrame):
 					present_velocity,
 					goal_torque_current,
 					setpoint_torque_current,
-					present_torque_current,
+					self.present_torque_current,
 					goal_flux_current,
 					setpoint_flux_current,
-					present_flux_current
+					self.present_flux_current
 				)
 
 				if self.counter == 0:
@@ -207,8 +210,8 @@ class ram_frame(LabelFrame):
 
 				self.variables['present_position_servo'].set(str( present_position ))
 				self.variables['present_velocity_servo'].set(str( present_velocity ))
-				self.variables['present_torque_current_servo'].set(str( present_torque_current ))
-				self.variables['present_flux_current_servo'].set(str( present_flux_current ))
+				self.variables['present_torque_current_servo'].set(str( int(self.present_torque_current) ))
+				self.variables['present_flux_current_servo'].set(str( int(self.present_flux_current) ))
 				self.variables['present_voltage_servo'].set(str(result[24]))
 				self.variables['present_temperature_servo'].set(str(result[25]))
 				self.variables['moving_servo'].set(str(result[26]))

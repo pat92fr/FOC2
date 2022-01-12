@@ -20,14 +20,14 @@
 #include <math.h>
 
 // hard-coded settings
-#define ALPHA_CURRENT_DQ			0.01f 	// was 0.05 low pass filter for present Id and present Iq estimation
+#define ALPHA_CURRENT_DQ			0.1f 	// was 0.01 low pass filter for present Id and present Iq estimation
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
 #define MAX_PWM_DUTY_CYCLE 			0.95f 	// %
 #define MIN_PWM_DUTY_CYCLE 			0.05f 	// %
 	// with a PWM frequency (20Khz and more), deadtime is no longer negligeable.
 	// deadtime = 128 at f=160MHz ==> deadtime = 800ns.
 	// MIN/MAX DUTY CYCLE is set in order to allow current sense (800ns is about 2% PWM at 20KHz)
-#define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
+//#define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
 								 	// if commented default SPWM is used
 
 // peripherals
@@ -209,6 +209,13 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 	uint16_t const CCRa = (uint16_t)(duty_cycle_PWMa*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 	uint16_t const CCRb = (uint16_t)(duty_cycle_PWMb*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 	uint16_t const CCRc = (uint16_t)(duty_cycle_PWMc*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
+
+	// TODO CONTROL MODE = 0 ==> OFF
+	// TODO CONTROL MODE = 0 ==> OFF
+	// TODO CONTROL MODE = 0 ==> OFF
+	// TODO CONTROL MODE = 0 ==> OFF
+	// TODO CONTROL MODE = 0 ==> OFF
+	// TODO CONTROL MODE = 0 ==> OFF
 
 	// update TIMER CCR registers
 	//   and apply BRAKE if error
@@ -512,7 +519,7 @@ void API_FOC_Torque_Update(
 		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
 		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
 		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
-
+/*
 		// VdVq should not exceed present voltage
 		if(present_voltage_V>0) // avoid divide by zero, never true.
 		{
@@ -529,7 +536,7 @@ void API_FOC_Torque_Update(
 				Vd *= k;
 			}
 		}
-
+*/
 
 
 
