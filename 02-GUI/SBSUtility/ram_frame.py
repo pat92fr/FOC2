@@ -68,6 +68,9 @@ class ram_frame(LabelFrame):
 		self.present_torque_current 	= 0
 		self.present_flux_current 	= 0
 
+		self.setpoint_torque_current = 0
+		self.setpoint_flux_current = 0
+
 		self.read_all()
 
 	def gui_entry(self,text_label,variable_name,variable_value,has_local,has_servo,has_callback,callback_reg_address,callback_reg_scale,callback_reg_size):
@@ -157,10 +160,10 @@ class ram_frame(LabelFrame):
 				setpoint_velocity 	= float(sign(result[34] + (result[35]<<8)))
 				present_velocity 	= float(sign(result[18] + (result[19]<<8)))
 				goal_torque_current 	= float(sign(result[7] + (result[8]<<8)))
-				setpoint_torque_current = float(sign(result[36] + (result[37]<<8)))
+				self.setpoint_torque_current = 0.99*self.setpoint_torque_current+0.01*float(sign(result[36] + (result[37]<<8)))
 				self.present_torque_current 	= 0.99*self.present_torque_current+0.01*float(sign(result[20] + (result[21]<<8)))
 				goal_flux_current 		= float(sign( result[9] + (result[10]<<8)))
-				setpoint_flux_current 	= float(sign( result[38] + (result[39]<<8)))
+				self.setpoint_flux_current 	= 0.99*self.setpoint_flux_current+0.01*float(sign( result[38] + (result[39]<<8)))
 				self.present_flux_current 	= 0.99*self.present_flux_current+0.01*float(sign( result[22] + (result[23]<<8)))
 				kp = result[11]
 				kd = result[12]
@@ -174,10 +177,10 @@ class ram_frame(LabelFrame):
 					setpoint_velocity,
 					present_velocity,
 					goal_torque_current,
-					setpoint_torque_current,
+					self.setpoint_torque_current,
 					self.present_torque_current,
 					goal_flux_current,
-					setpoint_flux_current,
+					self.setpoint_flux_current,
 					self.present_flux_current
 				)
 
@@ -217,8 +220,8 @@ class ram_frame(LabelFrame):
 				self.variables['moving_servo'].set(str(result[26]))
 				self.variables['setpoint_position_servo'].set(str( setpoint_position ))
 				self.variables['setpoint_velocity_servo'].set(str( setpoint_velocity ))
-				self.variables['setpoint_torque_current_servo'].set(str( setpoint_torque_current ))
-				self.variables['setpoint_flux_current_servo'].set(str( setpoint_flux_current ))
+				self.variables['setpoint_torque_current_servo'].set(str( int(self.setpoint_torque_current) ))
+				self.variables['setpoint_flux_current_servo'].set(str( int(self.setpoint_flux_current) ))
 				self.variables['processing_time_servo'].set(str(result[42]))
 				self.variables['foc_frequency_servo'].set(str(result[43]))
 				self.variables['pid_frequency_servo'].set(str(result[44]))

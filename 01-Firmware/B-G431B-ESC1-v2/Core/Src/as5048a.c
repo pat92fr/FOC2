@@ -136,8 +136,9 @@ float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 	{
 		// clear encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING);
-		// compute estimation
-		return present_position_rad + present_velocity_rad*(float)(delta_t_us)/1000000.0f;
+		// compute estimation*
+#define SENSOR_LATENCY_US 1000.0f
+		return present_position_rad + present_velocity_rad*(float)(delta_t_us+SENSOR_LATENCY_US)/1000000.0f;
 	}
 
 }

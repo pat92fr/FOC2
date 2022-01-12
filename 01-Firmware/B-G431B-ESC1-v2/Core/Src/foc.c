@@ -27,7 +27,7 @@
 	// with a PWM frequency (20Khz and more), deadtime is no longer negligeable.
 	// deadtime = 128 at f=160MHz ==> deadtime = 800ns.
 	// MIN/MAX DUTY CYCLE is set in order to allow current sense (800ns is about 2% PWM at 20KHz)
-//#define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
+#define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
 								 	// if commented default SPWM is used
 
 // peripherals
@@ -470,7 +470,7 @@ void API_FOC_Torque_Update(
 		present_Iq_filtered = ALPHA_CURRENT_DQ*present_Iq+(1.0f-ALPHA_CURRENT_DQ)*present_Iq_filtered;
 
 		// flux controller (PI+FF) ==> Vd [-max_voltage_V,max_voltage_V]
-		float const setpoint_Id = setpoint_flux_current_mA; //+ifw;
+		float const setpoint_Id = setpoint_flux_current_mA+ifw;
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
 		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
@@ -499,11 +499,10 @@ void API_FOC_Torque_Update(
 		float Vq = error_Iq*Torque_Kp+Iq_error_integral; //+Torque_Kff*setpoint_Iq;
 
 		// flux weakening
-		float const Vs = sqrtf(Vd*Vd+Vq*Vq);
-		ifw = fminf(0.0f, (present_voltage_V/2.0f-Vs)*(float)(regs[REG_FIELD_WEAKENING_K]));
+		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
+		ifw = fminf(0.0f, (present_voltage_V/2.0f-Vnorm)*10.0f*(float)(regs[REG_FIELD_WEAKENING_K]));
 		float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
-		ifw = fmaxf(ifw,-reg_max_current_ma*0.75f);
-		ifw = Vs*1000; // DEBUG
+		ifw = fmaxf(ifw,-reg_max_current_ma*0.25f);
 
 
 		// TODO : Remettre du KI
@@ -519,7 +518,7 @@ void API_FOC_Torque_Update(
 		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
 		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
 		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
-/*
+
 		// VdVq should not exceed present voltage
 		if(present_voltage_V>0) // avoid divide by zero, never true.
 		{
@@ -531,12 +530,12 @@ void API_FOC_Torque_Update(
 			float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
 			if(Vnorm>Vmax)
 			{
-				float const k = sqrtf(fabsf(Vnorm/Vmax));
+				float const k = fabsf(Vmax/Vnorm);
 				Vq *= k;
 				Vd *= k;
 			}
 		}
-*/
+
 
 
 
