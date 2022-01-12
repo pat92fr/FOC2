@@ -107,6 +107,17 @@ void API_FOC_Init()
 	HAL_ADC_Start_DMA(&hadc2,(uint32_t*)ADC2_DMA,3);
 	// CORDIC init
 	API_CORDIC_Processor_Init();
+	// Reset state
+	API_FOC_Reset();
+}
+
+// user API function
+// this function reset state of FOC
+void API_FOC_Reset()
+{
+	Iq_error_integral = 0.0f;
+	Id_error_integral = 0.0f;
+	ifw = 0.0f;
 }
 
 // low level function
@@ -202,24 +213,17 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 	float const duty_cycle_PWMc = fconstrain((Vc-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
 
 	// convert PWM duty cycles % to TIMER1 CCR register values
-	// fPWM = 16KHz
+	// fPWM = 22KHz
 	// fTIM = 160MHz
 	// in PWM centered mode, for the finest possible resolution :
-	// ARR = fTIM/(2 * fPWM) -1 => ARR = 4999
+	// ARR = fTIM/(2 * fPWM) -1 => ARR = 3635
 	uint16_t const CCRa = (uint16_t)(duty_cycle_PWMa*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 	uint16_t const CCRb = (uint16_t)(duty_cycle_PWMb*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 	uint16_t const CCRc = (uint16_t)(duty_cycle_PWMc*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 
-	// TODO CONTROL MODE = 0 ==> OFF
-	// TODO CONTROL MODE = 0 ==> OFF
-	// TODO CONTROL MODE = 0 ==> OFF
-	// TODO CONTROL MODE = 0 ==> OFF
-	// TODO CONTROL MODE = 0 ==> OFF
-	// TODO CONTROL MODE = 0 ==> OFF
-
 	// update TIMER CCR registers
-	//   and apply BRAKE if error
-	if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
+	// and apply BRAKE if error or no control mode activated
+	if( (regs[REG_HARDWARE_ERROR_STATUS] != 0) && (regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE) )
 	{
 		// compute a valid BRAKE value
 		uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1; // note : 0 is OK too
@@ -230,8 +234,8 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 	else
 	{
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,CCRa);
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRb); // switch b and c phases
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRc); // switch b and c phases
+		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRb);
+		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRc);
 	}
 }
 
@@ -407,8 +411,7 @@ void API_FOC_Service_Update()
 // note : with a 5008 motor, there is no need for Ki and Kff in both flux and torque PI
 void API_FOC_Torque_Update(
 		float setpoint_torque_current_mA,
-		float setpoint_flux_current_mA,
-		float setpoint_velocity_dps
+		float setpoint_flux_current_mA
 )
 {
 	// note : absolute position increases when turning CCW (encoder)
@@ -426,13 +429,6 @@ void API_FOC_Torque_Update(
 
 		// process absolute position, and compute theta ahead using average processing time and velocity
 		absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
-
-		// if ALARM then zeroize currents setpoints
-		if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
-		{
-			setpoint_torque_current_mA = 0.0f;
-			setpoint_flux_current_mA = 0.0f;
-		}
 
 		// process phase current
 		// Note : when current flows inward phase, shunt voltage is negative
@@ -476,8 +472,8 @@ void API_FOC_Torque_Update(
 		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
 		float const error_Id = setpoint_Id-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
 
-		float integral_cut = 20000.0f;
-		float ki = 0.0000008f;
+		float integral_cut = 5000.0f;
+		float ki = 0.0000005f; //5
 
 		Id_error_integral += (error_Id)*ki;
 		Id_error_integral = fminf(Id_error_integral,integral_cut); // cut 10A
@@ -499,45 +495,27 @@ void API_FOC_Torque_Update(
 		float Vq = error_Iq*Torque_Kp+Iq_error_integral; //+Torque_Kff*setpoint_Iq;
 
 		// flux weakening
+#ifdef CSVPWM
+			static float const inv_sqrt3 = 1.0f/sqrtf(3);
+			float const Vmax = present_voltage_V*inv_sqrt3; // Umax = Udc/sqrt(3)
+#else
+			float const Vmax = present_voltage_V*0.5f;
+#endif
 		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
-		ifw = fminf(0.0f, (present_voltage_V/2.0f-Vnorm)*10.0f*(float)(regs[REG_FIELD_WEAKENING_K]));
+		ifw = fminf(0.0f, (Vmax-Vnorm)*(float)(regs[REG_FIELD_WEAKENING_K]));
 		float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
 		ifw = fmaxf(ifw,-reg_max_current_ma*0.25f);
-
-
-		// TODO : Remettre du KI
-		// TODO : Remettre du KI
-		// TODO : Remettre du KI
-		// TODO : Remettre du KI
-		// TODO : Remettre du KI
-
-		// TODO et analyser l'impact sur la production de Vs.
-
-		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
-		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
-		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
-		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
-		//// TODO FIX : Vx is [-present_voltage_V/2,present_voltage_V/2]
+		// reset feedforward
+		if( regs[REG_CONTROL_MODE] == 0)
+			ifw = 0.0f;
 
 		// VdVq should not exceed present voltage
-		if(present_voltage_V>0) // avoid divide by zero, never true.
+		if(Vnorm>Vmax)
 		{
-#ifdef CSVPWM
-			float const Vmax = present_voltage_V/2.0f*1.15f; // over modulation
-#else
-			float const Vmax = present_voltage_V/2.0f;
-#endif
-			float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
-			if(Vnorm>Vmax)
-			{
-				float const k = fabsf(Vmax/Vnorm);
-				Vq *= k;
-				Vd *= k;
-			}
+			float const k = fabsf(Vmax/Vnorm);
+			Vq *= k;
+			Vd *= k;
 		}
-
-
-
 
 		// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
 		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta);

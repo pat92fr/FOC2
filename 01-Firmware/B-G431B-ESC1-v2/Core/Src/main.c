@@ -406,12 +406,19 @@ int main(void)
 	{
 		pid_last_time_us+=PID_LOOP_PERIOD;
 		++pid_counter;
+
+		// update sensor
+		positionSensor_update();
+
+		// stop control when error
+		if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
+		{
+			regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
+		}
+
 		// make alias
 		uint16_t const reg_control_mode = regs[REG_CONTROL_MODE];
 		// process operating mode
-
-		positionSensor_update();
-
 		switch(reg_control_mode)
 		{
 		case REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE:
@@ -438,6 +445,8 @@ int main(void)
 					setpoint_flux_current_mA = 0.0f;
 					// set setpoint_position_deg to avoid glitch
 					setpoint_position_deg = positionSensor_getDegreeMultiturn();
+					// foc reset
+					API_FOC_Reset();
 				}
 				{
 					// compute position set-point from goal and EEPROM position limits
@@ -465,18 +474,6 @@ int main(void)
 					// set flux
 					float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 					setpoint_flux_current_mA = goal_flux_current_mA;
-					// if target speed not reached, process field weakening :
-					/*
-					 *
-					 if(
-							( (setpoint_velocity_dps>1000.0f) && (setpoint_velocity_dps>positionSensor_getVelocityDegree()) ) ||
-							( (setpoint_velocity_dps<1000.0f) && (setpoint_velocity_dps<positionSensor_getVelocityDegree()) )
-					)
-					{
-						float const fw = -fmax((fabsf(setpoint_velocity_dps)-1000.0f),0.0f)/(float)(regs[REG_FIELD_WEAKENING_K]+1); // FW start à 1000dps/166rpm
-						setpoint_flux_current_mA+=fw;
-					}
-					*/
 				}
 			}
 			break;
@@ -600,14 +597,9 @@ int main(void)
 		regs[REG_SETPOINT_VELOCITY_DPS_H] = HIGH_BYTE((int16_t)(setpoint_velocity_dps*1.0f));
 		regs[REG_SETPOINT_TORQUE_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_torque_current_mA*1.0f));
 		regs[REG_SETPOINT_TORQUE_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_torque_current_mA*1.0f));
-
-		//regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
-		//regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
 		regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(API_FOC_Get_Setpoint_Flux_Current()*1.0f));
 		regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(API_FOC_Get_Setpoint_Flux_Current()*1.0f));
 		// test new FW
-
-
 		regs[REG_PROCESSING_TIME] = (uint8_t)(API_FOC_Get_Processing_Time());
 		regs[REG_FOC_FREQUENCY] = (uint8_t)(API_FOC_Get_Processing_Frequency()/1000.0f);
 		regs[REG_PID_FREQUENCY] = (uint8_t)((float)pid_counter/(float)HAL_GetTick());
@@ -668,8 +660,7 @@ int main(void)
 	// FOC torque update
 	API_FOC_Torque_Update(
 		setpoint_torque_current_mA,
-		setpoint_flux_current_mA,
-		setpoint_velocity_dps
+		setpoint_flux_current_mA
 	);
 	++mlp_counter;
   }

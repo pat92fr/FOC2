@@ -18,14 +18,15 @@ void API_FOC_Init();
 
 int API_FOC_Calibrate();
 
+void API_FOC_Reset();
+
 // low priority low frequency process
 void API_FOC_Service_Update()  __attribute__((section (".ccmram")));
 
 // high priority high frequency process
 void API_FOC_Torque_Update(
 		float setpoint_torque_current_mA,
-		float setpoint_flux_current_mA,
-		float setpoint_velocity_dps
+		float setpoint_flux_current_mA
 )  __attribute__((section (".ccmram")));
 
 void API_FOC_Set_Flux_Angle(

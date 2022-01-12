@@ -67,9 +67,9 @@ class ram_frame(LabelFrame):
 
 		self.present_torque_current 	= 0
 		self.present_flux_current 	= 0
-
 		self.setpoint_torque_current = 0
 		self.setpoint_flux_current = 0
+		self.alpha = 0.05
 
 		self.read_all()
 
@@ -160,11 +160,11 @@ class ram_frame(LabelFrame):
 				setpoint_velocity 	= float(sign(result[34] + (result[35]<<8)))
 				present_velocity 	= float(sign(result[18] + (result[19]<<8)))
 				goal_torque_current 	= float(sign(result[7] + (result[8]<<8)))
-				self.setpoint_torque_current = 0.99*self.setpoint_torque_current+0.01*float(sign(result[36] + (result[37]<<8)))
-				self.present_torque_current 	= 0.99*self.present_torque_current+0.01*float(sign(result[20] + (result[21]<<8)))
+				self.setpoint_torque_current = (1.0-self.alpha)*self.setpoint_torque_current+self.alpha*float(sign(result[36] + (result[37]<<8)))
+				self.present_torque_current 	= (1.0-self.alpha)*self.present_torque_current+self.alpha*float(sign(result[20] + (result[21]<<8)))
 				goal_flux_current 		= float(sign( result[9] + (result[10]<<8)))
-				self.setpoint_flux_current 	= 0.99*self.setpoint_flux_current+0.01*float(sign( result[38] + (result[39]<<8)))
-				self.present_flux_current 	= 0.99*self.present_flux_current+0.01*float(sign( result[22] + (result[23]<<8)))
+				self.setpoint_flux_current 	= (1.0-self.alpha)*self.setpoint_flux_current+self.alpha*float(sign( result[38] + (result[39]<<8)))
+				self.present_flux_current 	= (1.0-self.alpha)*self.present_flux_current+self.alpha*float(sign( result[22] + (result[23]<<8)))
 				kp = result[11]
 				kd = result[12]
 				goal_synchro_offset		= float(sign( result[13] + (result[14]<<8)))
