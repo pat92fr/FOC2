@@ -11,8 +11,6 @@
 #include "control_table.h"
 #include "serial.h"
 
-// AS5048A in PWM output has a latency of 1ms (at least)
-#define SENSOR_LATENCY_US 1000.0f
 
 // serial communication (UART2) for TRACEs
 // TODO : use STM32 CUBE MONITOR
@@ -141,7 +139,7 @@ float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING);
 		// compute estimation*
 
-		return present_position_rad + present_velocity_rad*(float)(delta_t_us+SENSOR_LATENCY_US)/1000000.0f;
+		return present_position_rad + present_velocity_rad*(float)(delta_t_us+position_delta_time_us)/1000000.0f;
 	}
 
 }

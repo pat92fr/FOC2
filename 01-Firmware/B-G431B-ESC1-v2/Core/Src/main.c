@@ -614,6 +614,10 @@ int main(void)
 //						(int)(API_FOC_Get_Present_Torque_Current()),
 //						(int)(API_FOC_Get_Present_Flux_Current())
 //					);
+
+//			HAL_Serial_Print(&serial,"%d\n",
+//			(int)API_AS5048A_Position_Sensor_Get_DeltaTimestamp()
+//			);
 		}
 
 

@@ -24,8 +24,14 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max);
 
 #define M_2PI (2.0f*M_PI)
 #define M_3PI_2 (3.0f*M_PI_2)
+
 #define RADIANS_TO_DEGREES(rad) ((rad)*180.0f/M_PI)
 #define DEGREES_TO_RADIANS(deg) ((deg)*M_PI/180.0f)
+
+#define INV_SQRT3  	(0.57735026f)
+#define SQRT3 		(1.73205080f)
+#define SQRT3_2		(0.86602540f)
+
 
 // normalizing radian angle to [0,2PI]
 float normalize_angle(float angle_rad);

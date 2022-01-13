@@ -9,6 +9,7 @@
 /// DOC SVM https://www.embedded.com/painless-mcu-implementation-of-space-vector-modulation-for-electric-motor-systems/
 
 #include "foc.h"
+#include "foc_utils.h"
 #include "cordic.h"
 #include "serial.h"
 #include "position_sensor.h"
@@ -83,7 +84,6 @@ static uint32_t foc_counter = 0;
 
 void LL_FOC_Update_Temperature() __attribute__((section (".ccmram")));
 void LL_FOC_Update_Voltage() __attribute__((section (".ccmram")));
-void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine_theta, float sine_theta )  __attribute__((section (".ccmram")));
 
 // user API function
 // this function reset state of FOC
@@ -187,60 +187,6 @@ void LL_FOC_Update_Voltage()
 	}
 }
 
-// low level function
-// this function checks REG_HARDWARE_ERROR_STATUS register and enforce BRAKE is register not null
-// this function use the present_voltage_V state variable to adjust PWM duty cycle according power supply voltage
-void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine_theta, float sine_theta )
-{
-	// convert (Vd,Vq) [-max_voltage_V/2,max_voltage_V/2] to (Valpha,Vbeta) [-max_voltage_V/2,max_voltage_V/2] [Inverse Park Transformation]
-	float const Valpha = Vd * cosine_theta - Vq * sine_theta;
-	float const Vbeta = Vq * cosine_theta + Vd * sine_theta;
-
-	// convert (Valpha,Vbeta) [-max_voltage_V/2,max_voltage_V/2] to (Va,Vb,Vc) [-max_voltage_V/2,max_voltage_V/2] [Inverse Clarke Transformation]
-	static float const sqrt3_2 = sqrtf(3.0f)/2.0f;
-	float const Va = Valpha;
-	float const Vb = -0.5f*Valpha+sqrt3_2*Vbeta;
-	float const Vc = -0.5f*Valpha-sqrt3_2*Vbeta;
-	// SPWM done
-
-#ifdef CSVPWM
-	// apply CSVPWM to (Va,Vb,Vc)
-	float const Vneutral = 0.5f*(fmaxf(fmaxf(Va,Vb),Vc)+fminf(fminf(Va,Vb),Vc));
-#else
-	float const Vneutral = 0.0f;
-#endif
-
-	// convert (Va,Vb,Vc) [-max_voltage_V/2,max_voltage_V/2] to PWM duty cycles % [MIN_PWM_DUTY_CYCLE MAX_PWM_DUTY_CYCLE]
-	float const duty_cycle_PWMa = fconstrain((Va-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
-	float const duty_cycle_PWMb = fconstrain((Vb-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
-	float const duty_cycle_PWMc = fconstrain((Vc-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
-
-	// convert PWM duty cycles % to TIMER1 CCR register values
-	// fPWM = 22KHz
-	// fTIM = 160MHz
-	// in PWM centered mode, for the finest possible resolution :
-	// ARR = fTIM/(2 * fPWM) -1 => ARR = 3635
-	uint16_t const CCRa = (uint16_t)(duty_cycle_PWMa*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
-	uint16_t const CCRb = (uint16_t)(duty_cycle_PWMb*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
-	uint16_t const CCRc = (uint16_t)(duty_cycle_PWMc*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
-
-	// update TIMER CCR registers
-	// and apply BRAKE if error or no control mode activated
-	if( (regs[REG_HARDWARE_ERROR_STATUS] != 0) && (regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE) )
-	{
-		// compute a valid BRAKE value
-		uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1; // note : 0 is OK too
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,CCRx);
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRx);
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRx);
-	}
-	else
-	{
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,CCRa);
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRb);
-		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRc);
-	}
-}
 
 // user API function
 // this function process an open-loop FOC from electrical angle and voltage setpoints
@@ -267,7 +213,7 @@ void API_FOC_Set_Flux_Angle(
 	float const Vq = 0.0f; // no torque
 
 	// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-	LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta);
+	LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 	// this function checks REG_HARDWARE_ERROR_STATUS register and enforce BRAKE is register not null
 	// this function use the present_voltage_V state variable to adjust PWM duty cycle according power supply voltage
 }
@@ -301,7 +247,7 @@ void API_FOC_Set_Flux_Velocity(
 	float const Vq = 0.0f; // no torque
 
 	// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-	LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta);
+	LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 	// this function checks REG_HARDWARE_ERROR_STATUS register and enforce BRAKE is register not null
 	// this function use the present_voltage_V state variable to adjust PWM duty cycle according power supply voltage
 }
@@ -454,9 +400,8 @@ void API_FOC_Torque_Update(
 		API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
 		// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
-		static float const sqrt3 = sqrtf(3.0f);
 		float const present_Ialpha = 2.0f/3.0f*motor_current_mA[0]-1.0f/3.0f*(motor_current_mA[1]+motor_current_mA[2]);
-		float const present_Ibeta = 1.0f/sqrt3*(motor_current_mA[1]-motor_current_mA[2]);
+		float const present_Ibeta = 1.0f/SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
 		// Note Ialpha synchone de Ia et de même phase/signe
 		// Note Ibeta suit Iaplha de 90°
 
@@ -486,7 +431,7 @@ void API_FOC_Torque_Update(
 		float const error_Id = setpoint_Id-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
 
 		float integral_cut = 5000.0f;
-		float ki = 0.0000005f; //0.0000005f
+		float ki = 0.0000002f; //0.0000005f
 
 		Id_error_integral += (error_Id)*ki;
 		Id_error_integral = fminf(Id_error_integral,integral_cut); // cut 10A
@@ -509,8 +454,7 @@ void API_FOC_Torque_Update(
 
 		// flux weakening
 #ifdef CSVPWM
-			static float const inv_sqrt3 = 1.0f/sqrtf(3);
-			float const Vmax = present_voltage_V*inv_sqrt3; // Umax = Udc/sqrt(3)
+			float const Vmax = present_voltage_V*INV_SQRT3; // Umax = Udc/sqrt(3)
 #else
 			float const Vmax = present_voltage_V*0.5f;
 #endif
@@ -527,7 +471,7 @@ void API_FOC_Torque_Update(
 		}
 
 		// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta);
+		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 
 		// performance monitoring
 		uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);
