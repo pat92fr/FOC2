@@ -474,6 +474,15 @@ int main(void)
 					// set flux
 					float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 					setpoint_flux_current_mA = goal_flux_current_mA;
+
+
+
+					// TODO SLEW RATE IQ SETPOINT
+					// TODO SLEW RATE IQ SETPOINT
+					// TODO SLEW RATE IQ SETPOINT
+					// TODO SLEW RATE IQ SETPOINT
+					// TODO SLEW RATE IQ SETPOINT
+					// TODO SLEW RATE IQ SETPOINT
 				}
 			}
 			break;

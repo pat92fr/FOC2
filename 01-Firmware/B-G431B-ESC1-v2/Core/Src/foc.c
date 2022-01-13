@@ -21,7 +21,7 @@
 #include <math.h>
 
 // hard-coded settings
-#define ALPHA_CURRENT_DQ			0.1f 	// was 0.01 low pass filter for present Id and present Iq estimation
+#define ALPHA_CURRENT_DQ			0.5f 	// was 0.1 low pass filter for present Id and present Iq estimation
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
 
 // peripherals
@@ -405,9 +405,20 @@ void API_FOC_Torque_Update(
 		float present_Id =  present_Ialpha*cosine_theta+present_Ibeta*sine_theta;
 		float present_Iq = -present_Ialpha*sine_theta+present_Ibeta*cosine_theta;
 
+		// USEFULL ?
+		// USEFULL ?
+		// USEFULL ?
+		// USEFULL ? NO
+
 		// (Id,Iq) filtering
 		present_Id_filtered = ALPHA_CURRENT_DQ*present_Id+(1.0f-ALPHA_CURRENT_DQ)*present_Id_filtered;
 		present_Iq_filtered = ALPHA_CURRENT_DQ*present_Iq+(1.0f-ALPHA_CURRENT_DQ)*present_Iq_filtered;
+
+
+		// USEFULL ?
+		// USEFULL ?
+		// USEFULL ?
+		// USEFULL ?
 
 		// reset PID
 		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE)
@@ -416,19 +427,12 @@ void API_FOC_Torque_Update(
 			Id_error_integral = 0.0f;
 		}
 
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
+
+		/// FIX USING PID CLASS
+		/// FIX USING PID CLASS
+		/// FIX USING PID CLASS
+		/// FIX USING PID CLASS
+		/// FIX USING PID CLASS
 
 		// flux controller (PI+FF) ==> Vd
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
