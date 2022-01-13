@@ -21,7 +21,6 @@
 #include <math.h>
 
 // hard-coded settings
-#define ALPHA_CURRENT_DQ			0.5f 	// was 0.1 low pass filter for present Id and present Iq estimation
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
 
 // peripherals
@@ -54,8 +53,8 @@ static uint16_t motor_current_sample_adc[3] = {0.0f,0.0f,0.0f};
 static float motor_current_input_adc_offset[3] = {2464.0f,2482.0f,2485.0f};
 static float motor_current_input_adc_mA[3] = {0.034f,0.034f,0.034f};
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
-static float present_Id_filtered = 0.0f;
-static float present_Iq_filtered = 0.0f;
+float present_Id_mA = 0.0;
+float present_Iq_mA = 0.0f;
 
 // TEST
 // TEST
@@ -402,23 +401,8 @@ void API_FOC_Torque_Update(
 		// Note Ibeta suit Iaplha de 90°
 
 		// (Ialpha,Ibeta) [0..xxxmA] to (Id,Iq) [0..xxxmA] [Park Transformation]
-		float present_Id =  present_Ialpha*cosine_theta+present_Ibeta*sine_theta;
-		float present_Iq = -present_Ialpha*sine_theta+present_Ibeta*cosine_theta;
-
-		// USEFULL ?
-		// USEFULL ?
-		// USEFULL ?
-		// USEFULL ? NO
-
-		// (Id,Iq) filtering
-		present_Id_filtered = ALPHA_CURRENT_DQ*present_Id+(1.0f-ALPHA_CURRENT_DQ)*present_Id_filtered;
-		present_Iq_filtered = ALPHA_CURRENT_DQ*present_Iq+(1.0f-ALPHA_CURRENT_DQ)*present_Iq_filtered;
-
-
-		// USEFULL ?
-		// USEFULL ?
-		// USEFULL ?
-		// USEFULL ?
+		present_Id_mA =  present_Ialpha*cosine_theta+present_Ibeta*sine_theta;
+		present_Iq_mA = -present_Ialpha*sine_theta+present_Ibeta*cosine_theta;
 
 		// reset PID
 		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE)
@@ -438,7 +422,7 @@ void API_FOC_Torque_Update(
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
 		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
-		float const error_Id = setpoint_flux_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
+		float const error_Id = setpoint_flux_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_mA : 0.0f); // open loop if 0, closed loop if 1
 
 		float integral_cut = 5000.0f;
 		float ki = 0.0000002f; //0.0000005f
@@ -453,7 +437,7 @@ void API_FOC_Torque_Update(
 		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 		//float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
 		//float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
-		float const error_Iq = setpoint_torque_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_filtered : 0.0f);
+		float const error_Iq = setpoint_torque_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_mA : 0.0f);
 
 		Iq_error_integral += (error_Iq)*ki;
 		Iq_error_integral = fminf(Iq_error_integral,integral_cut); // cut 10A
@@ -524,12 +508,12 @@ void API_FOC_Torque_Update(
 
 float API_FOC_Get_Present_Torque_Current()
 {
-	return present_Iq_filtered;
+	return present_Iq_mA;
 }
 
 float API_FOC_Get_Present_Flux_Current()
 {
-	return present_Id_filtered;
+	return present_Id_mA;
 }
 
 float API_FOC_Get_Present_Voltage()
@@ -545,7 +529,6 @@ float API_FOC_Get_Present_Temp()
 float API_FOC_Get_Processing_Time()
 {
 	return average_processing_time_us;
-
 }
 
 float API_FOC_Get_Processing_Frequency()
