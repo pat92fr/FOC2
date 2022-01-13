@@ -396,8 +396,8 @@ void API_FOC_Torque_Update(
 		API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
 		// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
-		float const present_Ialpha = 2.0f/3.0f*motor_current_mA[0]-1.0f/3.0f*(motor_current_mA[1]+motor_current_mA[2]);
-		float const present_Ibeta = 1.0f/SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
+		float const present_Ialpha = (2.0f*motor_current_mA[0]-motor_current_mA[1]-motor_current_mA[2])/3.0f;
+		float const present_Ibeta = INV_SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
 		// Note Ialpha synchone de Ia et de même phase/signe
 		// Note Ibeta suit Iaplha de 90°
 
@@ -415,6 +415,20 @@ void API_FOC_Torque_Update(
 			Iq_error_integral = 0.0f;
 			Id_error_integral = 0.0f;
 		}
+
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
 
 		// flux controller (PI+FF) ==> Vd
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
@@ -442,6 +456,20 @@ void API_FOC_Torque_Update(
 		Iq_error_integral = fmaxf(Iq_error_integral,-integral_cut); // cut 10A
 
 		float Vq = error_Iq*Torque_Kp+Iq_error_integral; //+Torque_Kff*setpoint_Iq;
+
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
+		/// FIX END
 
 		// voltage norm saturation
 		float const Vmax = present_voltage_V*INV_SQRT3; // Umax = Udc/sqrt(3)
