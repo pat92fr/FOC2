@@ -452,14 +452,9 @@ void API_FOC_Torque_Update(
 
 		float Vq = error_Iq*Torque_Kp+Iq_error_integral; //+Torque_Kff*setpoint_Iq;
 
-		// flux weakening
+		// voltage norm saturation
 		float const Vmax = present_voltage_V*INV_SQRT3; // Umax = Udc/sqrt(3)
-
 		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
-		fw_beta_deg = fminf(0.0f, (Vmax-Vnorm)*(float)(regs[REG_FIELD_WEAKENING_K]));
-		fw_beta_deg = fmaxf(-90.0f,fw_beta_deg);
-
-		// VdVq should not exceed present voltage
 		if(Vnorm>Vmax)
 		{
 			float const k = fabsf(Vmax/Vnorm);

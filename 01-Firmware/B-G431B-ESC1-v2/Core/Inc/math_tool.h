@@ -22,10 +22,16 @@ extern "C" {
 #define INV_SQRT3  	(0.5773502691896257f)
 #define SQRT3 		(1.7320508075688772f)
 
+// TODO CCRAM for function called from FOC
+// TODO CCRAM for function called from FOC
+// TODO CCRAM for function called from FOC
+// TODO CCRAM for function called from FOC
+// TODO CCRAM for function called from FOC
 
 int32_t constrain(int32_t x, int32_t min, int32_t max);
-float fconstrain(float x, float min, float max);
-float fconstrain_both(float x, float abs); // __attribute__((section (".ccmram")));
+float fconstrain(float x, float min, float max) __attribute__((section (".ccmram")));
+float fconstrain_both(float x, float abs);
+
 uint32_t map(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max);
 float fmap(float x, float in_min, float in_max, float out_min, float out_max);
 
