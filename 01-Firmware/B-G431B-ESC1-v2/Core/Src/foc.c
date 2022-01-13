@@ -472,6 +472,8 @@ void API_FOC_Torque_Update(
 		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE)
 		{
 			fw_beta_deg = 0.0f;
+			Iq_error_integral = 0.0f;
+			Id_error_integral = 0.0f;
 		}
 		fw_setpoint_torque_current_mA = setpoint_torque_current_mA * cosf(DEGREES_TO_RADIANS(fw_beta_deg));
 		fw_setpoint_flux_current_mA = fabsf(setpoint_torque_current_mA) * sinf(DEGREES_TO_RADIANS(fw_beta_deg));
@@ -484,7 +486,7 @@ void API_FOC_Torque_Update(
 		float const error_Id = setpoint_Id-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
 
 		float integral_cut = 5000.0f;
-		float ki = 0.0000005f; //5
+		float ki = 0.0000005f; //0.0000005f
 
 		Id_error_integral += (error_Id)*ki;
 		Id_error_integral = fminf(Id_error_integral,integral_cut); // cut 10A
