@@ -352,7 +352,6 @@ void API_FOC_Service_Update()
 // this function allow on-the-go synchronization angle adjustment
 // the open loop mode means that the present Id and Iq are forced to 0
 //    this may require adjustment of the Kp and Ki of both flux and torque PI regulator
-// note : with a 5008 motor, there is no need for Ki and Kff in both flux and torque PI
 void API_FOC_Torque_Update(
 		float setpoint_torque_current_mA,
 		float setpoint_flux_current_mA
