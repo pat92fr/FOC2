@@ -23,13 +23,6 @@
 // hard-coded settings
 #define ALPHA_CURRENT_DQ			0.1f 	// was 0.01 low pass filter for present Id and present Iq estimation
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
-#define MAX_PWM_DUTY_CYCLE 			0.95f 	// %
-#define MIN_PWM_DUTY_CYCLE 			0.05f 	// %
-	// with a PWM frequency (20Khz and more), deadtime is no longer negligeable.
-	// deadtime = 128 at f=160MHz ==> deadtime = 800ns.
-	// MIN/MAX DUTY CYCLE is set in order to allow current sense (800ns is about 2% PWM at 20KHz)
-#define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
-								 	// if commented default SPWM is used
 
 // peripherals
 extern TIM_HandleTypeDef htim1;
@@ -65,11 +58,17 @@ static float present_Id_filtered = 0.0f;
 static float present_Iq_filtered = 0.0f;
 
 // TEST
+// TEST
+// TEST
+// TEST
+// TEST
 static float Iq_error_integral = 0.0f;
 static float Id_error_integral = 0.0f;
-static float fw_beta_deg = 0.0f;
-static float fw_setpoint_torque_current_mA = 0.0f;
-static float fw_setpoint_flux_current_mA = 0.0f;
+// TEST
+// TEST
+// TEST
+// TEST
+
 // foc feedback
 static float absolute_position_rad = 0.0f;
 // foc analog measure
@@ -118,9 +117,6 @@ void API_FOC_Reset()
 {
 	Iq_error_integral = 0.0f;
 	Id_error_integral = 0.0f;
-	fw_beta_deg = 0.0f;
-	fw_setpoint_torque_current_mA = 0.0f;
-	fw_setpoint_flux_current_mA = 0.0f;
 }
 
 // low level function
@@ -413,22 +409,18 @@ void API_FOC_Torque_Update(
 		present_Id_filtered = ALPHA_CURRENT_DQ*present_Id+(1.0f-ALPHA_CURRENT_DQ)*present_Id_filtered;
 		present_Iq_filtered = ALPHA_CURRENT_DQ*present_Iq+(1.0f-ALPHA_CURRENT_DQ)*present_Iq_filtered;
 
-		// compute IdIq with flux weakening
+		// reset PID
 		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE)
 		{
-			fw_beta_deg = 0.0f;
 			Iq_error_integral = 0.0f;
 			Id_error_integral = 0.0f;
 		}
-		fw_setpoint_torque_current_mA = setpoint_torque_current_mA * cosf(DEGREES_TO_RADIANS(fw_beta_deg));
-		fw_setpoint_flux_current_mA = fabsf(setpoint_torque_current_mA) * sinf(DEGREES_TO_RADIANS(fw_beta_deg));
 
-		// flux controller (PI+FF) ==> Vd [-max_voltage_V,max_voltage_V]
-		float const setpoint_Id = fw_setpoint_flux_current_mA;
+		// flux controller (PI+FF) ==> Vd
 		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
 		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
-		float const error_Id = setpoint_Id-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
+		float const error_Id = setpoint_flux_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_filtered : 0.0f); // open loop if 0, closed loop if 1
 
 		float integral_cut = 5000.0f;
 		float ki = 0.0000002f; //0.0000005f
@@ -439,12 +431,11 @@ void API_FOC_Torque_Update(
 
 		float Vd = error_Id*Flux_Kp+Id_error_integral; //+Flux_Kff*setpoint_Id;
 
-		// torque controller (PI+FF) ==> Vq [-max_voltage_V,max_voltage_V]
-		float const setpoint_Iq = fw_setpoint_torque_current_mA + setpoint_flux_current_mA;
+		// torque controller (PI+FF) ==> Vq
 		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 		//float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
 		//float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
-		float const error_Iq = setpoint_Iq-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_filtered : 0.0f);
+		float const error_Iq = setpoint_torque_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_filtered : 0.0f);
 
 		Iq_error_integral += (error_Iq)*ki;
 		Iq_error_integral = fminf(Iq_error_integral,integral_cut); // cut 10A
@@ -507,16 +498,6 @@ float API_FOC_Get_Present_Torque_Current()
 float API_FOC_Get_Present_Flux_Current()
 {
 	return present_Id_filtered;
-}
-
-float API_FOC_Get_Setpoint_Torque_Current()
-{
-	return fw_setpoint_torque_current_mA;
-}
-
-float API_FOC_Get_Setpoint_Flux_Current()
-{
-	return fw_setpoint_flux_current_mA;
 }
 
 float API_FOC_Get_Present_Voltage()

@@ -595,10 +595,10 @@ int main(void)
 		regs[REG_SETPOINT_POSITION_DEG_H] = HIGH_BYTE((int16_t)(setpoint_position_deg*10.0f));
 		regs[REG_SETPOINT_VELOCITY_DPS_L] = LOW_BYTE((int16_t)(setpoint_velocity_dps*1.0f));
 		regs[REG_SETPOINT_VELOCITY_DPS_H] = HIGH_BYTE((int16_t)(setpoint_velocity_dps*1.0f));
-		regs[REG_SETPOINT_TORQUE_CURRENT_MA_L] = LOW_BYTE((int16_t)(API_FOC_Get_Setpoint_Torque_Current()*1.0f));
-		regs[REG_SETPOINT_TORQUE_CURRENT_MA_H] = HIGH_BYTE((int16_t)(API_FOC_Get_Setpoint_Torque_Current()*1.0f));
-		regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(API_FOC_Get_Setpoint_Flux_Current()*1.0f));
-		regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(API_FOC_Get_Setpoint_Flux_Current()*1.0f));
+		regs[REG_SETPOINT_TORQUE_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_torque_current_mA*1.0f));
+		regs[REG_SETPOINT_TORQUE_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_torque_current_mA*1.0f));
+		regs[REG_SETPOINT_FLUX_CURRENT_MA_L] = LOW_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
+		regs[REG_SETPOINT_FLUX_CURRENT_MA_H] = HIGH_BYTE((int16_t)(setpoint_flux_current_mA*1.0f));
 		// test new FW
 		regs[REG_PROCESSING_TIME] = (uint8_t)(API_FOC_Get_Processing_Time());
 		regs[REG_FOC_FREQUENCY] = (uint8_t)(API_FOC_Get_Processing_Frequency()/1000.0f);
