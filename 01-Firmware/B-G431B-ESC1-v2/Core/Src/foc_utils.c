@@ -16,8 +16,6 @@
 	// with a PWM frequency (20Khz and more), deadtime must be taken in account.
 	// CUBEMX configuration : deadtime = 128 at f=160MHz ==> deadtime = 800ns
 	// MIN/MAX DUTY CYCLE is set in order to allow current sense when TIM1 update event triggered (800ns is about 2% PWM at 20KHz)
-#define CSVPWM 					 	// uncomment to use CSVPWM (conventional space vector pulse width modulation),
-
 
 // peripherals
 extern TIM_HandleTypeDef htim1;
@@ -29,8 +27,8 @@ void LL_FOC_Inverse_Clarke_Park_PWM_Generation( float Vd, float Vq, float cosine
 	float const Vbeta  = Vq * cosine_theta + Vd * sine_theta;
 	// Inverse Clarke Transformation
 	float const Va = Valpha;
-	float const Vb = -0.5f * Valpha + SQRT3_2 * Vbeta;
-	float const Vc = -0.5f  *Valpha - SQRT3_2 * Vbeta;
+	float const Vb = ( -Valpha + SQRT3 * Vbeta ) * 0.5f;
+	float const Vc = ( -Valpha - SQRT3 * Vbeta ) * 0.5f;
 	// apply CSVPWM to (Va,Vb,Vc)
 	float const Vneutral = 0.5f*(fmaxf(fmaxf(Va,Vb),Vc)+fminf(fminf(Va,Vb),Vc));
 	// convert (Va,Vb,Vc) [-max_voltage_V/2,max_voltage_V/2] to PWM duty cycles % [MIN_PWM_DUTY_CYCLE MAX_PWM_DUTY_CYCLE]

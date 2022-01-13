@@ -43,7 +43,7 @@ HAL_StatusTypeDef API_CORDIC_Processor_Init()
 			CORDIC_OUTSIZE_32BITS, // q31
 			CORDIC_NBWRITE_1, // ARG2 is 1 default
 			CORDIC_NBREAD_2, // read cosine and sine
-			CORDIC_PRECISION_6CYCLES // better than 10-3
+			CORDIC_PRECISION_5CYCLES // better than 10-3
 	};
 	return HAL_CORDIC_Configure(&hcordic, &config);
 }
@@ -62,6 +62,13 @@ HAL_StatusTypeDef API_CORDIC_Processor_Update(float theta, float * c, float * s)
 			*c = Q31_TO_FLOAT(OutBuff[0]);
 		if(s!=0)
 			*s = Q31_TO_FLOAT(OutBuff[1]);
+	}
+	else
+	{
+		// TODO hardware error !
+		// TODO hardware error !
+		// TODO hardware error !
+		// TODO hardware error !
 	}
 	return result;
 }

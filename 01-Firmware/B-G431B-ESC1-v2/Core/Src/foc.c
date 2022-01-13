@@ -453,11 +453,8 @@ void API_FOC_Torque_Update(
 		float Vq = error_Iq*Torque_Kp+Iq_error_integral; //+Torque_Kff*setpoint_Iq;
 
 		// flux weakening
-#ifdef CSVPWM
-			float const Vmax = present_voltage_V*INV_SQRT3; // Umax = Udc/sqrt(3)
-#else
-			float const Vmax = present_voltage_V*0.5f;
-#endif
+		float const Vmax = present_voltage_V*INV_SQRT3; // Umax = Udc/sqrt(3)
+
 		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
 		fw_beta_deg = fminf(0.0f, (Vmax-Vnorm)*(float)(regs[REG_FIELD_WEAKENING_K]));
 		fw_beta_deg = fmaxf(-90.0f,fw_beta_deg);
@@ -470,7 +467,7 @@ void API_FOC_Torque_Update(
 			Vd *= k;
 		}
 
-		// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
+		// do inverse clarke and park transformation and update 3-phase PWM generation
 		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 
 		// performance monitoring
