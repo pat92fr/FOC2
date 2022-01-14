@@ -360,7 +360,7 @@ void API_FOC_Torque_Update(
 		memcpy(motor_current_sample_adc,motor_current_input_adc,sizeof(uint16_t)*3);
 
 		// performance monitoring
-		uint16_t const t_begin = __HAL_TIM_GET_COUNTER(&htim6);
+		uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
 
 		// process absolute position, and compute theta ahead using average processing time and velocity
 		float const absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
@@ -380,16 +380,24 @@ void API_FOC_Torque_Update(
 		float const reg_pole_pairs = regs[REG_MOTOR_POLE_PAIRS];
 		float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
 		float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
+
+		// after this line ~11µs
+
 		float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
 		float cosine_theta = 0.0f;
 		float sine_theta = 0.0f;
+		// after this line ~10µs
+
 		API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
+
 
 		// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
 		float const present_Ialpha = (2.0f*motor_current_mA[0]-motor_current_mA[1]-motor_current_mA[2])/3.0f;
 		float const present_Ibeta = INV_SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
 		// Note : Ialpha synchonized with Ia (same phase/sign)
 		// Note : Ibeta follow Iaplha with 90° offset
+
+		// after this line ~8µs
 
 		// (Ialpha,Ibeta) [0..xxxmA] to (Id,Iq) [0..xxxmA] [Park Transformation]
 		present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;

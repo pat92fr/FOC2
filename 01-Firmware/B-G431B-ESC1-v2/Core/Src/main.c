@@ -67,7 +67,6 @@
 
 // Advanced settings (do not change)
 #define ALPHA_VELOCITY				0.24f // (default:0.24) F = 1000Hz ==> Fc (-3dB) = 20Hz
-#define ALPHA_CURRENT_SETPOINT 		0.48f // (default:0.48) F = 1000Hz ==> Fc (-3dB) = 20Hz
 
 /* USER CODE END PD */
 
@@ -472,7 +471,7 @@ int main(void)
 					float const vel_kp = (float)regs[REG_GOAL_VEL_KP]/10.0f;
 					error_velocity_dps = ALPHA_VELOCITY*(setpoint_velocity_dps-positionSensor_getVelocityDegree())+(1.0f-ALPHA_VELOCITY)*error_velocity_dps;
 					float const reg_reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
-					float setpoint_torque_current_mA = reg_reverse*pid_process_antiwindup_clamp_with_ff(
+					setpoint_torque_current_mA = reg_reverse*pid_process_antiwindup_clamp_with_ff(
 							&pd_position,
 							error_position_deg,
 							pos_kp,
@@ -482,21 +481,9 @@ int main(void)
 							0.1f,
 							vel_kp*error_velocity_dps+torque_feed_forward_ma
 					);
-					// TODO : ALPHA_CURRENT_SETPOINT
-					// limit torque
-					setpoint_torque_current_mA = fconstrain(setpoint_torque_current_mA,-reg_max_current_ma,reg_max_current_ma);
 					// set flux
 					float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 					setpoint_flux_current_mA = goal_flux_current_mA;
-
-
-
-					// TODO SLEW RATE IQ SETPOINT
-					// TODO SLEW RATE IQ SETPOINT
-					// TODO SLEW RATE IQ SETPOINT
-					// TODO SLEW RATE IQ SETPOINT
-					// TODO SLEW RATE IQ SETPOINT
-					// TODO SLEW RATE IQ SETPOINT
 				}
 			}
 			break;
@@ -589,6 +576,7 @@ int main(void)
 			regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
 			regs[REG_GOAL_POS_KP] = 0;
 			regs[REG_GOAL_POS_KD] = 0;
+			regs[REG_GOAL_VEL_KP] = 0;
 			// reset all setpoints
 			setpoint_position_deg = 0.0f;
 			setpoint_velocity_dps = 0.0f;
@@ -1166,7 +1154,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
-  htim1.Init.Period = 3199;
+  htim1.Init.Period = 1999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
