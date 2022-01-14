@@ -17,6 +17,33 @@ void pid_reset( pid_context_t * ctx )
 	ctx->derivative_filtered = 0.0f;
 }
 
+float pi_process_antiwindup_clamp(
+		pid_context_t * ctx,
+		float error,
+		float kp,
+		float ki,
+		float output_limit
+)
+{
+	// PID
+	float const p_term = kp*error;
+	float const i_term = ctx->err_integral;
+	// compute output before saturation
+	float const v = p_term + i_term;
+	// saturation
+	float const u = fconstrain(v,-output_limit,output_limit);
+	// output saturating
+	bool saturating = (u!=v);
+	// error and output same sign
+	bool sign = (error*v >= 0);
+	// zero
+	bool clamp = saturating && sign;
+	if(!clamp)
+		ctx->err_integral = ctx->err_integral + ki*error;
+	// output
+	return u;
+}
+
 float pid_process_antiwindup_clamp_with_ff(
 		pid_context_t * ctx,
 		float error,

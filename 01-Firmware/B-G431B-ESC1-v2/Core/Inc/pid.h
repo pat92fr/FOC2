@@ -25,6 +25,15 @@ typedef struct{
 
 void pid_reset( pid_context_t * ctx );
 
+// PI faster than PID+FF ==> gain ~1µs
+float pi_process_antiwindup_clamp(
+		pid_context_t * ctx,
+		float error,
+		float kp,
+		float ki,
+		float output_limit
+) __attribute__((section (".ccmram")));
+
 float pid_process_antiwindup_clamp_with_ff(
 		pid_context_t * ctx,
 		float error,

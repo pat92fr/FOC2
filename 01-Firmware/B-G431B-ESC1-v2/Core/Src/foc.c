@@ -38,6 +38,7 @@ extern OPAMP_HandleTypeDef hopamp3;
 // TODO : use STM32 CUBE MONITOR
 extern HAL_Serial_Handler serial;
 
+
 // FOC period at PWM output = 16kHz (check TIMER1 ARR value = 4999 and timer frequency =160MHz)
 static uint32_t const current_sample_drop_rate = 0;
 // 3:250us cycle
@@ -346,6 +347,12 @@ void API_FOC_Torque_Update(
 		float setpoint_flux_current_mA
 )
 {
+	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+
+
 	// note : absolute position increases when turning CCW (encoder)
 	// note : FOC period is less than motor PWM period
 	// drop phase current samples a few times between each FOC iteration
@@ -378,8 +385,8 @@ void API_FOC_Torque_Update(
 		float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
 		float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
 		float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
-		static float cosine_theta = 0.0f;
-		static float sine_theta = 0.0f;
+		float cosine_theta = 0.0f;
+		float sine_theta = 0.0f;
 		API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
 		// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
@@ -393,6 +400,7 @@ void API_FOC_Torque_Update(
 		present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
 
 		// compute Vd and Vq
+		// computation ~4µs
 		float Vd = 0.0f;
 		float Vq = 0.0f;
 		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE) // force PI reset when no control mode
@@ -410,47 +418,29 @@ void API_FOC_Torque_Update(
 			float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
 			//float const flux_Ki = 0.0000002f;
 			//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
-			float const flux_Kff = 0.0f;
-			Vd = pid_process_antiwindup_clamp_with_ff(
+			Vd = pi_process_antiwindup_clamp(
 					&flux_pi,
 					error_Id,
 					flux_Kp,
 					flux_Ki,
-					0, // kd
-					present_voltage_V, // output_limit,
-					0.0f, // alpha_derivative,
-					flux_Kff*setpoint_flux_current_mA // feed_forward
+					present_voltage_V // output_limit
 			);
 			// torque PIFF
 			float const torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 			float const torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/100000000.0f;
 			//float const torque_Ki = 0.00000020f;
 			//float const torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
-			float const torque_Kff = 0.0f;
-			Vq = pid_process_antiwindup_clamp_with_ff(
+			Vq = pi_process_antiwindup_clamp(
 					&torque_pi,
 					error_Iq,
 					torque_Kp,
 					torque_Ki,
-					0, // kd
-					present_voltage_V, // output_limit,
-					0.0f, // alpha_derivative,
-					torque_Kff*setpoint_torque_current_mA // feed_forward
+					present_voltage_V // output_limit
 			);
 		}
 
-		// TODO OPTIMIZE PI without D
-		// TODO OPTIMIZE PI without D
-		// TODO OPTIMIZE PI without D
-		// TODO OPTIMIZE PI without D
-		// TODO OPTIMIZE PI without D
-		// TODO OPTIMIZE PI without D
-		// TODO OPTIMIZE PI without D => 3µs to gain
-		// TODO OPTIMIZE PI without D => 3µs to gain
-		// TODO OPTIMIZE PI without D => 3µs to gain
-		// TODO OPTIMIZE PI without D => 3µs to gain
-
 		// voltage norm saturation Umax = Udc/sqrt(3)
+		// computation ~0.5µs
 		float const Vmax = present_voltage_V*INV_SQRT3;
 		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
 		if(Vnorm>Vmax)
