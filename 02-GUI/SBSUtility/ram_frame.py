@@ -33,11 +33,11 @@ class ram_frame(LabelFrame):
 		self.gui_entry("Goal Velocity (dps)", "goal_velocity", 0, True, True, True, 0x85, 1, 2 )
 		self.gui_entry("FFTorque Current (mA)", "goal_torque_current", 0, True, True, True, 0x87, 1, 2 )
 		self.gui_entry("Goal Flux Current (mA)", "goal_flux_current", 0, True, True, True, 0x89, 1, 2 )
-		self.gui_entry("Position K", "goal_kp", 0, True, True, True, 0x8B, 1, 1 )
-		self.gui_entry("Velocity K", "goal_kd", 0, True, True, True, 0x8C, 1, 1 )
+		self.gui_entry("Position Kp", "goal_pos_kp", 0, True, True, True, 0x8B, 1, 1 )
+		self.gui_entry("Position Kd", "goal_pos_kd", 0, True, True, True, 0x8C, 1, 1 )
+		self.gui_entry("Velocity Kp", "goal_vel_kp", 0, True, True, True, 0x8D, 1, 1 )
 		self.gui_spacer("---")
-		self.gui_entry("Manual Synchro Offset", "goal_synchro_offset", 0, True, True, True, 0x8D, 1, 2 )
-		self.gui_entry("Force Open Loop", "goal_open_loop", 0, True, True, True, 0x8F, 1, 1 )
+		self.gui_entry("Manual Synchro Offset", "goal_synchro_offset", 0, True, True, True, 0x8E, 1, 2 )
 		self.gui_spacer("---")
 		self.gui_entry("Present Position (deg)", "present_position", 0, False, True, False, 0x90, 10, 2 )
 		self.gui_entry("Present Velocity (dps)", "present_velocity", 0, False, True, False, 0x92, 1, 2 )
@@ -165,9 +165,10 @@ class ram_frame(LabelFrame):
 				goal_flux_current 		= float(sign( result[9] + (result[10]<<8)))
 				self.setpoint_flux_current 	= (1.0-self.alpha)*self.setpoint_flux_current+self.alpha*float(sign( result[38] + (result[39]<<8)))
 				self.present_flux_current 	= (1.0-self.alpha)*self.present_flux_current+self.alpha*float(sign( result[22] + (result[23]<<8)))
-				kp = result[11]
-				kd = result[12]
-				goal_synchro_offset		= float(sign( result[13] + (result[14]<<8)))
+				pos_kp = result[11]
+				pos_kd = result[12]
+				vel_kp = result[13]
+				goal_synchro_offset		= float(sign( result[14] + (result[15]<<8)))
 
 				self.trace.update(
 					goal_position,
@@ -191,10 +192,11 @@ class ram_frame(LabelFrame):
 					self.variables['goal_velocity_local'].set(str( goal_velocity ))
 					self.variables['goal_torque_current_local'].set(str( goal_torque_current ))
 					self.variables['goal_flux_current_local'].set(str( goal_flux_current ))
-					self.variables['goal_kd_local'].set(str( kd ))
-					self.variables['goal_kp_local'].set(str( kp ))
+					self.variables['goal_pos_kp_local'].set(str( pos_kp ))
+					self.variables['goal_pos_kd_local'].set(str( pos_kd ))
+					self.variables['goal_vel_kp_local'].set(str( vel_kp ))
 					self.variables['goal_synchro_offset_local'].set(str( goal_synchro_offset ))
-					self.variables['goal_open_loop_local'].set(str( result[15] ))
+					#self.variables['goal_open_loop_local'].set(str( result[15] ))
 		
 				#self.variables['torque_enable_servo'].set(str(result[0]))
 				self.variables['led_servo'].set(str(result[1]))
@@ -205,11 +207,12 @@ class ram_frame(LabelFrame):
 				self.variables['goal_torque_current_servo'].set(str( goal_torque_current ))
 				self.variables['goal_flux_current_servo'].set(str( goal_flux_current ))
 				
-				self.variables['goal_kp_servo'].set(str( kp ))
-				self.variables['goal_kd_servo'].set(str( kd ))
+				self.variables['goal_pos_kp_servo'].set(str( pos_kp ))
+				self.variables['goal_pos_kd_servo'].set(str( pos_kd ))
+				self.variables['goal_vel_kp_servo'].set(str( vel_kp ))
 
 				self.variables['goal_synchro_offset_servo'].set(str( goal_synchro_offset ))
-				self.variables['goal_open_loop_servo'].set(str( result[15] ))
+				#self.variables['goal_open_loop_servo'].set(str( result[15] ))
 
 				self.variables['present_position_servo'].set(str( present_position ))
 				self.variables['present_velocity_servo'].set(str( present_velocity ))

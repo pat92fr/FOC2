@@ -25,6 +25,7 @@
 #include "serial.h"
 #include "position_sensor.h"
 #include "foc.h"
+#include "pid.h"
 #include "math_tool.h"
 #include "eeprom.h"
 #include "protocol.h"
@@ -256,8 +257,8 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 			  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
 			  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
 			  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
-			  regs[REG_GOAL_KP]  = RxData[4];
-			  regs[REG_GOAL_KD]  = RxData[5];
+			  regs[REG_GOAL_POS_KP]  = RxData[4];
+			  regs[REG_GOAL_POS_KD]  = RxData[5];
 			  //HAL_Serial_Print(&serial,"CAN (6)\n");
 		  }
 		  else if(payload_length==8) // position, speed, and torque feed forward, Kp/kd update
@@ -275,8 +276,8 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				  regs[REG_GOAL_VELOCITY_DPS_H] = 0;
 				  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = 0;
 				  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
-				  regs[REG_GOAL_KP]  = 0;
-				  regs[REG_GOAL_KD]  = 0;
+				  regs[REG_GOAL_POS_KP]  = 0;
+				  regs[REG_GOAL_POS_KD]  = 0;
 				  //HAL_Serial_Print(&serial,"CAN request ARM\n");
 			  }
 			  else if(can_armed)
@@ -288,8 +289,8 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
 				  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = RxData[4];
 				  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = RxData[5];
-				  regs[REG_GOAL_KP]  = RxData[6];
-				  regs[REG_GOAL_KD]  = RxData[7];
+				  regs[REG_GOAL_POS_KP]  = RxData[6];
+				  regs[REG_GOAL_POS_KD]  = RxData[7];
 				  //HAL_Serial_Print(&serial,"CAN (8)\n");
 			  }
 		  }
@@ -386,6 +387,7 @@ int main(void)
 	uint16_t last_mode = REG_CONTROL_MODE_IDLE;
 	uint32_t pid_counter = 0;
 	uint32_t mlp_counter = 0;
+	pid_context_t pd_position;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -447,6 +449,8 @@ int main(void)
 					setpoint_position_deg = positionSensor_getDegreeMultiturn();
 					// foc reset
 					API_FOC_Reset();
+					// pid reset
+					pid_reset(&pd_position);
 				}
 				{
 					// compute position set-point from goal and EEPROM position limits
@@ -462,14 +466,24 @@ int main(void)
 					float const torque_feed_forward_ma = (int16_t)(MAKE_SHORT(regs[REG_GOAL_TORQUE_CURRENT_MA_L],regs[REG_GOAL_TORQUE_CURRENT_MA_H]));
 					// compute torque setpoint
 					float const error_position_deg = setpoint_position_deg-positionSensor_getDegreeMultiturn();
-					float const kp = (float)regs[REG_GOAL_KP];
-					error_velocity_dps = ALPHA_VELOCITY*(setpoint_velocity_dps-positionSensor_getVelocityDegree())+(1.0f-ALPHA_VELOCITY)*error_velocity_dps;
-					float const kd = (float)regs[REG_GOAL_KD]/10.0f;
-					float const reg_reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
-					setpoint_torque_current_mA = ALPHA_CURRENT_SETPOINT*reg_reverse*(kp*error_position_deg+kd*error_velocity_dps+torque_feed_forward_ma)
-							+ (1.0f-ALPHA_CURRENT_SETPOINT)*setpoint_torque_current_mA;
-					// limit torque
+					float const pos_kp = (float)regs[REG_GOAL_POS_KP];
+					float const pos_kd = (float)regs[REG_GOAL_POS_KD];
 					float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
+					float const vel_kp = (float)regs[REG_GOAL_VEL_KP]/10.0f;
+					error_velocity_dps = ALPHA_VELOCITY*(setpoint_velocity_dps-positionSensor_getVelocityDegree())+(1.0f-ALPHA_VELOCITY)*error_velocity_dps;
+					float const reg_reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
+					float setpoint_torque_current_mA = reg_reverse*pid_process_antiwindup_clamp_with_ff(
+							&pd_position,
+							error_position_deg,
+							pos_kp,
+							0.0f,
+							pos_kd,
+							reg_max_current_ma,
+							0.1f,
+							vel_kp*error_velocity_dps+torque_feed_forward_ma
+					);
+					// TODO : ALPHA_CURRENT_SETPOINT
+					// limit torque
 					setpoint_torque_current_mA = fconstrain(setpoint_torque_current_mA,-reg_max_current_ma,reg_max_current_ma);
 					// set flux
 					float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
@@ -573,8 +587,8 @@ int main(void)
 			regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
 			regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
 			regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
-			regs[REG_GOAL_KP] = 0;
-			regs[REG_GOAL_KD] = 0;
+			regs[REG_GOAL_POS_KP] = 0;
+			regs[REG_GOAL_POS_KD] = 0;
 			// reset all setpoints
 			setpoint_position_deg = 0.0f;
 			setpoint_velocity_dps = 0.0f;

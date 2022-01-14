@@ -198,9 +198,7 @@ void API_FOC_Set_Flux_Angle(
 	float const Vq = 0.0f; // no torque
 
 	// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-	LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
-	// this function checks REG_HARDWARE_ERROR_STATUS register and enforce BRAKE is register not null
-	// this function use the present_voltage_V state variable to adjust PWM duty cycle according power supply voltage
+	LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 }
 
 // user API function
@@ -232,9 +230,7 @@ void API_FOC_Set_Flux_Velocity(
 	float const Vq = 0.0f; // no torque
 
 	// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-	LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
-	// this function checks REG_HARDWARE_ERROR_STATUS register and enforce BRAKE is register not null
-	// this function use the present_voltage_V state variable to adjust PWM duty cycle according power supply voltage
+	LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 }
 
 // user API function
@@ -411,13 +407,11 @@ void API_FOC_Torque_Update(
 		else
 		{
 			// compute Id and Iq errors
-			float const error_Id = setpoint_flux_current_mA   - ( regs[REG_GOAL_CLOSED_LOOP]==1? present_Id_mA : 0.0f); // open loop if 0, closed loop if 1
-			float const error_Iq = setpoint_torque_current_mA - ( regs[REG_GOAL_CLOSED_LOOP]==1? present_Iq_mA : 0.0f); // open loop if 0, closed loop if 1
+			float const error_Id = setpoint_flux_current_mA   - present_Id_mA;
+			float const error_Iq = setpoint_torque_current_mA - present_Iq_mA;
 			// flux PI
 			float const flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 			float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
-			//float const flux_Ki = 0.0000002f;
-			//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
 			Vd = pi_process_antiwindup_clamp(
 					&flux_pi,
 					error_Id,
@@ -428,8 +422,6 @@ void API_FOC_Torque_Update(
 			// torque PIFF
 			float const torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 			float const torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/100000000.0f;
-			//float const torque_Ki = 0.00000020f;
-			//float const torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
 			Vq = pi_process_antiwindup_clamp(
 					&torque_pi,
 					error_Iq,
@@ -451,7 +443,7 @@ void API_FOC_Torque_Update(
 		}
 
 		// do inverse clarke and park transformation and update 3-phase PWM generation
-		LL_FOC_Inverse_Clarke_Park_PWM_Generation(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
+		LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 
 		// performance monitoring
 		uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);
@@ -459,30 +451,6 @@ void API_FOC_Torque_Update(
 		static const float alpha_performance_monitoring = 0.001f;
 		average_processing_time_us = (1.0f-alpha_performance_monitoring)*average_processing_time_us+alpha_performance_monitoring*(float)t_tp;
 		++foc_counter;
-
-		// TRACE/DEBUG
-		// TODO : use STM32 CUBE MONITOR
-		/*static uint32_t count = 0;
-		if(++count%4==0)
-		{
-			HAL_Serial_Print(&serial,"%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
-				(int)RADIANS_TO_DEGREES(theta_rad),
-				(int)(motor_current_mA[0]),
-				(int)(motor_current_mA[1]),
-				(int)(motor_current_mA[2]),
-				(int)present_Ialpha,
-				(int)present_Ibeta,
-				(int)present_Id_filtered,
-				(int)present_Iq_filtered,
-				(int)(Vd*100.0f),
-				(int)(Vq*100.0f),
-				(int)(Valpha*100.0f),
-				(int)(Vbeta*100.0f),
-				(int)(duty_cycle_PWMa*100.0f),
-				(int)(duty_cycle_PWMb*100.0f),
-				(int)(duty_cycle_PWMc*100.0f)
-			);
-		}*/
 	}
 }
 

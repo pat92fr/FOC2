@@ -119,6 +119,5 @@ void store_eeprom_regs()
 void reset_ram_regs()
 {
 	memset(&regs[REG_TORQUE_ENABLE],0,REG_MAX-REG_TORQUE_ENABLE);
-	regs[REG_GOAL_CLOSED_LOOP] = 1;		// CLOSED LOOP
 }
 

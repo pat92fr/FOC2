@@ -117,11 +117,11 @@ extern "C" {
 #define REG_GOAL_TORQUE_CURRENT_MA_H			0x88 //8
 #define REG_GOAL_FLUX_CURRENT_MA_L				0x89 //9
 #define REG_GOAL_FLUX_CURRENT_MA_H				0x8A //10
-#define REG_GOAL_KP								0x8B //11
-#define REG_GOAL_KD								0x8C //12
-#define REG_GOAL_SYNCHRO_OFFSET_L				0x8D //13
-#define REG_GOAL_SYNCHRO_OFFSET_H				0x8E //14
-#define REG_GOAL_CLOSED_LOOP					0x8F //15
+#define REG_GOAL_POS_KP							0x8B //11
+#define REG_GOAL_POS_KD							0x8C //11
+#define REG_GOAL_VEL_KP							0x8D //12
+#define REG_GOAL_SYNCHRO_OFFSET_L				0x8E //13
+#define REG_GOAL_SYNCHRO_OFFSET_H				0x8F //14
 
 #define REG_PRESENT_POSITION_DEG_L				0x90 //16
 #define REG_PRESENT_POSITION_DEG_H				0x91 //17
