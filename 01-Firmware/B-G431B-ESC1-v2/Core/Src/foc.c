@@ -16,6 +16,7 @@
 #include "math_tool.h"
 #include "control_table.h"
 #include "binary_tool.h"
+#include "pid.h"
 
 #include <string.h>
 #include <math.h>
@@ -53,29 +54,18 @@ static uint16_t motor_current_sample_adc[3] = {0.0f,0.0f,0.0f};
 static float motor_current_input_adc_offset[3] = {2464.0f,2482.0f,2485.0f};
 static float motor_current_input_adc_mA[3] = {0.034f,0.034f,0.034f};
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
-float present_Id_mA = 0.0;
-float present_Iq_mA = 0.0f;
+static float present_Id_mA = 0.0;
+static float present_Iq_mA = 0.0f;
+static pid_context_t flux_pi;
+static pid_context_t torque_pi;
 
-// TEST
-// TEST
-// TEST
-// TEST
-// TEST
-static float Iq_error_integral = 0.0f;
-static float Id_error_integral = 0.0f;
-// TEST
-// TEST
-// TEST
-// TEST
-
-// foc feedback
-static float absolute_position_rad = 0.0f;
 // foc analog measure
 static float potentiometer_input_adc = 0.0f;
 static float vbus_input_adc = 0.0f;
 static float temperature_input_adc = 0.0f;
 static float present_voltage_V = 0.0f;
 static float present_temperature_C = 0.0f;
+
 // foc performance monitoring (public)
 static float average_processing_time_us = 0.0f;
 static uint32_t foc_counter = 0;
@@ -114,8 +104,8 @@ void API_FOC_Init()
 // this function reset state of FOC
 void API_FOC_Reset()
 {
-	Iq_error_integral = 0.0f;
-	Id_error_integral = 0.0f;
+	pid_reset(&flux_pi);
+	pid_reset(&torque_pi);
 }
 
 // low level function
@@ -201,7 +191,6 @@ void API_FOC_Set_Flux_Angle(
 	static float cosine_theta = 0.0f;
 	static float sine_theta = 0.0f;
 	API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
-
 
 	// compute (Vd,Vq) [-max_voltage_V/2,max_voltage_V/2]
 	float const Vd = fconstrain(setpoint_flux_voltage_V,-(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]/2.0f,(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]/2.0f); // torque setpoint open loop
@@ -371,7 +360,7 @@ void API_FOC_Torque_Update(
 		uint16_t const t_begin = __HAL_TIM_GET_COUNTER(&htim6);
 
 		// process absolute position, and compute theta ahead using average processing time and velocity
-		absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
+		float const absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
 
 		// process phase current
 		// Note : when current flows inward phase, shunt voltage is negative
@@ -396,70 +385,73 @@ void API_FOC_Torque_Update(
 		// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
 		float const present_Ialpha = (2.0f*motor_current_mA[0]-motor_current_mA[1]-motor_current_mA[2])/3.0f;
 		float const present_Ibeta = INV_SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
-		// Note Ialpha synchone de Ia et de même phase/signe
-		// Note Ibeta suit Iaplha de 90°
+		// Note : Ialpha synchonized with Ia (same phase/sign)
+		// Note : Ibeta follow Iaplha with 90° offset
 
 		// (Ialpha,Ibeta) [0..xxxmA] to (Id,Iq) [0..xxxmA] [Park Transformation]
-		present_Id_mA =  present_Ialpha*cosine_theta+present_Ibeta*sine_theta;
-		present_Iq_mA = -present_Ialpha*sine_theta+present_Ibeta*cosine_theta;
+		present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
+		present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
 
-		// reset PID
-		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE)
+		// compute Vd and Vq
+		float Vd = 0.0f;
+		float Vq = 0.0f;
+		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE) // force PI reset when no control mode
 		{
-			Iq_error_integral = 0.0f;
-			Id_error_integral = 0.0f;
+			pid_reset(&flux_pi);
+			pid_reset(&torque_pi);
+		}
+		else
+		{
+			// compute Id and Iq errors
+			float const error_Id = setpoint_flux_current_mA   - ( regs[REG_GOAL_CLOSED_LOOP]==1? present_Id_mA : 0.0f); // open loop if 0, closed loop if 1
+			float const error_Iq = setpoint_torque_current_mA - ( regs[REG_GOAL_CLOSED_LOOP]==1? present_Iq_mA : 0.0f); // open loop if 0, closed loop if 1
+			// flux PI
+			float const flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
+			float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
+			//float const flux_Ki = 0.0000002f;
+			//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
+			float const flux_Kff = 0.0f;
+			Vd = pid_process_antiwindup_clamp_with_ff(
+					&flux_pi,
+					error_Id,
+					flux_Kp,
+					flux_Ki,
+					0, // kd
+					present_voltage_V, // output_limit,
+					0.0f, // alpha_derivative,
+					flux_Kff*setpoint_flux_current_mA // feed_forward
+			);
+			// torque PIFF
+			float const torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
+			float const torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/100000000.0f;
+			//float const torque_Ki = 0.00000020f;
+			//float const torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
+			float const torque_Kff = 0.0f;
+			Vq = pid_process_antiwindup_clamp_with_ff(
+					&torque_pi,
+					error_Iq,
+					torque_Kp,
+					torque_Ki,
+					0, // kd
+					present_voltage_V, // output_limit,
+					0.0f, // alpha_derivative,
+					torque_Kff*setpoint_torque_current_mA // feed_forward
+			);
 		}
 
+		// TODO OPTIMIZE PI without D
+		// TODO OPTIMIZE PI without D
+		// TODO OPTIMIZE PI without D
+		// TODO OPTIMIZE PI without D
+		// TODO OPTIMIZE PI without D
+		// TODO OPTIMIZE PI without D
+		// TODO OPTIMIZE PI without D => 3µs to gain
+		// TODO OPTIMIZE PI without D => 3µs to gain
+		// TODO OPTIMIZE PI without D => 3µs to gain
+		// TODO OPTIMIZE PI without D => 3µs to gain
 
-		/// FIX USING PID CLASS
-		/// FIX USING PID CLASS
-		/// FIX USING PID CLASS
-		/// FIX USING PID CLASS
-		/// FIX USING PID CLASS
-
-		// flux controller (PI+FF) ==> Vd
-		float const Flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
-		//float const Flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/10000000.0f;
-		//float const Flux_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KFF_L],regs[REG_PID_FLUX_CURRENT_KFF_H])))/100000.0f;
-		float const error_Id = setpoint_flux_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Id_mA : 0.0f); // open loop if 0, closed loop if 1
-
-		float integral_cut = 5000.0f;
-		float ki = 0.0000002f; //0.0000005f
-
-		Id_error_integral += (error_Id)*ki;
-		Id_error_integral = fminf(Id_error_integral,integral_cut); // cut 10A
-		Id_error_integral = fmaxf(Id_error_integral,-integral_cut); // cut 10A
-
-		float Vd = error_Id*Flux_Kp+Id_error_integral; //+Flux_Kff*setpoint_Id;
-
-		// torque controller (PI+FF) ==> Vq
-		float const Torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
-		//float const Torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/10000000.0f;
-		//float const Torque_Kff = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KFF_L],regs[REG_PID_TORQUE_CURRENT_KFF_H])))/100000.0f;
-		float const error_Iq = setpoint_torque_current_mA-( regs[REG_GOAL_CLOSED_LOOP] == 1 ? present_Iq_mA : 0.0f);
-
-		Iq_error_integral += (error_Iq)*ki;
-		Iq_error_integral = fminf(Iq_error_integral,integral_cut); // cut 10A
-		Iq_error_integral = fmaxf(Iq_error_integral,-integral_cut); // cut 10A
-
-		float Vq = error_Iq*Torque_Kp+Iq_error_integral; //+Torque_Kff*setpoint_Iq;
-
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-		/// FIX END
-
-		// voltage norm saturation
-		float const Vmax = present_voltage_V*INV_SQRT3; // Umax = Udc/sqrt(3)
+		// voltage norm saturation Umax = Udc/sqrt(3)
+		float const Vmax = present_voltage_V*INV_SQRT3;
 		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
 		if(Vnorm>Vmax)
 		{
