@@ -26,5 +26,7 @@ float positionSensor_getDegree(void);
 float positionSensor_getDegreeMultiturn(void);
 float positionSensor_getVelocityDegree(void);
 e_sensor_type positionSensor_getType(void);
+uint16_t positionSensor_getDeltaTimestamp();
+int16_t positionSensor_getDeltaTimeEstimation();
 
 #endif /* INC_POSITION_SENSOR_H_ */

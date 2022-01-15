@@ -25,6 +25,7 @@ static uint32_t calls = 0;
 static uint32_t position_sensor_error = 0;
 static uint32_t position_sensor_error_counter = 0;
 static uint16_t present_time_us = 0;
+static int16_t delta_t_us = 0;
 static float present_position_rad = 0.0f;
 static float delta_position_rad = 0.0f;
 static float const bit_to_radians_ratio = M_2PI/4096.0f;
@@ -117,21 +118,24 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 {
 	float result = 0.0f;
-	int16_t delta_t_us = (int16_t)(time_us-present_time_us);
+	delta_t_us = (int16_t)(time_us-present_time_us);
 	// position has been received during FOC algorithm execution
-	if(delta_t_us<0)
+	if(delta_t_us<0) // should never happend because of NVIC priority (TIM4 priority lower than ADC DMA priority)
 	{
+		// set encoder error
+		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_TIMESTAMP;
+
 		// return current position
-		result= present_position_rad + present_velocity_rad*(float)(position_delta_time_us)/1000000.0f;;
+		result = present_position_rad; // + present_velocity_rad*(float)(position_delta_time_us)/1000000.0f;;
 	}
 	// check old sample error
-	else if(delta_t_us>2000) //2ms
+	else if(delta_t_us>1200) //1.2ms
 	{
 		// set encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING;
 		//HAL_Serial_Print(&serial,"%d %d (%d)\n",(int)time_us,(int)present_time_us, (int)delta_t_us);
 		// return current position (what ever)
-		result= present_position_rad;
+		result = present_position_rad;
 	}
 	// normal
 	else
@@ -139,7 +143,7 @@ float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 		// clear encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING);
 		// compute estimation
-		result= present_position_rad + present_velocity_rad*((float)delta_t_us+(float)position_delta_time_us)/1000000.0f;
+		result = present_position_rad + present_velocity_rad*((float)delta_t_us+(float)position_delta_time_us)/1000000.0f;
 	}
 	return result;
 }
@@ -172,6 +176,11 @@ uint16_t API_AS5048A_Position_Sensor_Get_Timestamp()
 uint16_t API_AS5048A_Position_Sensor_Get_DeltaTimestamp()
 {
 	return position_delta_time_us;
+}
+
+int16_t API_AS5048A_Position_Sensor_Get_DeltaTimeEstimation()
+{
+	return delta_t_us;
 }
 
 uint32_t API_AS5048A_Position_Sensor_Error()

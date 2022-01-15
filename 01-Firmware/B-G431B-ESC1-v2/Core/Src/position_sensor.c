@@ -271,3 +271,34 @@ e_sensor_type positionSensor_getType(void)
 {
 	return sensor->sensor_type;
 }
+
+
+uint16_t positionSensor_getDeltaTimestamp()
+{
+	switch(sensor->sensor_type)
+	{
+	case AS5600_I2C:
+		return 0;
+
+	case AS5048A_PWM:
+		return API_AS5048A_Position_Sensor_Get_DeltaTimestamp();
+
+	default:
+		return 0;
+	}
+}
+
+int16_t positionSensor_getDeltaTimeEstimation()
+{
+	switch(sensor->sensor_type)
+	{
+	case AS5600_I2C:
+		return 0;
+
+	case AS5048A_PWM:
+		return API_AS5048A_Position_Sensor_Get_DeltaTimeEstimation();
+
+	default:
+		return 0;
+	}
+}

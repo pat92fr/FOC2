@@ -25,6 +25,7 @@ float API_AS5048A_Position_Sensor_Get_RPS();
 float API_AS5048A_Position_Sensor_Get_DPS();
 uint16_t API_AS5048A_Position_Sensor_Get_Timestamp();
 uint16_t API_AS5048A_Position_Sensor_Get_DeltaTimestamp();
+int16_t API_AS5048A_Position_Sensor_Get_DeltaTimeEstimation();
 uint32_t API_AS5048A_Position_Sensor_Error();
 uint32_t API_AS5048A_Position_Sensor_Error_Counter();
 float API_AS5048A_Position_Sensor_Get_DeltaRad();
