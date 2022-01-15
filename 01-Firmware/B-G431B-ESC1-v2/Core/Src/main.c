@@ -387,9 +387,9 @@ int main(void)
 	pid_context_t pd_position;
 	while (1)
 	{
-		/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 
 		// TODO : add FOC time out IT
 		// TODO : add FOC time out IT
@@ -525,6 +525,9 @@ int main(void)
 				setpoint_position_deg = 0.0f;
 				setpoint_velocity_dps = 0.0f;
 				error_velocity_dps = 0.0f;
+
+				setpoint_torque_current_mA = 0.0f;
+				setpoint_flux_current_mA = 0.0f;
 			}
 
 			// RAM Update

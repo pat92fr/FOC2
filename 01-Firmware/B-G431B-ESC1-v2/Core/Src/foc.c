@@ -66,8 +66,8 @@ static float setpoint_electrical_angle_rad = 0.0f;
 static float setpoint_flux_voltage_V = 0.0f;
 
 // FOC variables
-static float present_Id_mA = 0.0;
-static float present_Iq_mA = 0.0f;
+static float present_Ids_mA = 0.0;
+static float present_Iqs_mA = 0.0f;
 static pid_context_t flux_pi;
 static pid_context_t torque_pi;
 
@@ -105,8 +105,8 @@ void API_FOC_Torque_Enable()
     setpoint_electrical_angle_rad = 0.0f;
     setpoint_flux_voltage_V = 0.0f;
 
-    present_Id_mA = 0.0;
-    present_Iq_mA = 0.0f;
+    present_Ids_mA = 0.0f;
+    present_Iqs_mA = 0.0f;
 
 	pid_reset(&flux_pi);
 	pid_reset(&torque_pi);
@@ -115,7 +115,9 @@ void API_FOC_Torque_Enable()
 void API_FOC_Torque_Disable()
 {
 	foc_state = FOC_STATE_IDLE;
-	HAL_Delay(10);
+	HAL_Delay(1);
+
+	// enforce brake
 	LL_FOC_brake();
 }
 
@@ -352,8 +354,8 @@ void API_FOC_Torque_Update()
 	// performance monitoring
 	uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
 
-	float Vd = 0.0f;
-	float Vq = 0.0f;
+	float Vds = 0.0f;
+	float Vqs = 0.0f;
 	float cosine_theta = 0.0f;
 	float sine_theta = 1.0f;
 
@@ -372,6 +374,20 @@ void API_FOC_Torque_Update()
 	{
 	case FOC_STATE_IDLE:
 		{
+			// [Theta]
+			float const theta_rad = mfmod(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
+
+			// [Cosine]
+			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
+
+			// [Clarke Transformation]
+			float const present_Ialpha = ( 2.0f * motor_current_mA[0] - motor_current_mA[1] - motor_current_mA[2] ) / 3.0f;
+			float const present_Ibeta  = INV_SQRT3 * ( motor_current_mA[1] - motor_current_mA[2] );
+
+			// [Park Transformation]
+			present_Ids_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
+			present_Iqs_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
+
 			// do brake
 			LL_FOC_brake();
 		}
@@ -391,20 +407,20 @@ void API_FOC_Torque_Update()
 			float const present_Ibeta  = INV_SQRT3 * ( motor_current_mA[1] - motor_current_mA[2] );
 
 			// [Park Transformation]
-			present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
-			present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
+			present_Ids_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
+			present_Iqs_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
 
 			// [PI]
-			Vd = pi_process_antiwindup_clamp(
+			Vds = pi_process_antiwindup_clamp(
 					&flux_pi,
-					setpoint_flux_current_mA - present_Id_mA,
+					setpoint_flux_current_mA - present_Ids_mA,
 					flux_Kp,
 					flux_Ki,
 					present_voltage_V // output_limit
 			);
-			Vq = pi_process_antiwindup_clamp(
+			Vqs = pi_process_antiwindup_clamp(
 					&torque_pi,
-					setpoint_torque_current_mA - present_Iq_mA,
+					setpoint_torque_current_mA - present_Iqs_mA,
 					torque_Kp,
 					torque_Ki,
 					present_voltage_V // output_limit
@@ -412,21 +428,25 @@ void API_FOC_Torque_Update()
 
 			// voltage norm saturation Umax = Udc/sqrt(3)
 			float const Vmax = present_voltage_V*INV_SQRT3;
-			float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
+			float const Vnorm = sqrtf(Vds*Vds+Vqs*Vqs);
 			if(Vnorm>Vmax)
 			{
 				float const k = fabsf(Vmax/Vnorm);
-				Vq *= k;
-				Vd *= k;
+				Vqs *= k;
+				Vds *= k;
 			}
 
 			// do inverse clarke and park transformation and update 3-phase PWM generation
-			LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
+			LL_FOC_set_phase_voltage(Vds,Vqs,cosine_theta,sine_theta,present_voltage_V);
 
 		}
 		break;
 	case FOC_STATE_FLUX_CONTROL:
 		{
+			// cannot estimate phase current
+		    present_Ids_mA = 0.0f;
+		    present_Iqs_mA = 0.0f;
+
 			// compute theta
 			float const theta_rad = normalize_angle(setpoint_electrical_angle_rad);
 
@@ -434,11 +454,11 @@ void API_FOC_Torque_Update()
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
 			// compute (Vd,Vq)
-			Vd = setpoint_flux_voltage_V; // torque setpoint open loop
-			Vq = 0.0f; // no torque
+			Vds = setpoint_flux_voltage_V; // torque setpoint open loop
+			Vqs = 0.0f; // no torque
 
 			// do inverse clarke and park transformation and update 3-phase PWM generation
-			LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
+			LL_FOC_set_phase_voltage(Vds,Vqs,cosine_theta,sine_theta,present_voltage_V);
 		}
 		break;
 	}
@@ -454,12 +474,12 @@ void API_FOC_Torque_Update()
 
 float API_FOC_Get_Present_Torque_Current()
 {
-	return present_Iq_mA;
+	return present_Iqs_mA;
 }
 
 float API_FOC_Get_Present_Flux_Current()
 {
-	return present_Id_mA;
+	return present_Ids_mA;
 }
 
 float API_FOC_Get_Present_Voltage()
