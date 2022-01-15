@@ -15,7 +15,6 @@ extern "C" {
 #include "stm32g4xx_hal.h"
 
 void API_FOC_Init();
-void API_FOC_Reset();
 
 int API_FOC_Calibrate();
 

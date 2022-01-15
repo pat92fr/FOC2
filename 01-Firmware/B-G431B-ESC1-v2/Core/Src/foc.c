@@ -59,62 +59,71 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 #define FOC_STATE_FLUX_CONTROL 10 			// calibration
 static uint32_t foc_state = FOC_STATE_IDLE;
 
-void API_FOC_Torque_Enable()
-{
-	foc_state = FOC_STATE_TORQUE_CONTROL;
-	 API_FOC_Reset();
-}
-
-void API_FOC_Torque_Disable()
-{
-	foc_state = FOC_STATE_IDLE;
-	LL_FOC_brake();
-}
-
-// setpoints variables
-static float setpoint_torque_current_mA;
-static float setpoint_flux_current_mA;
+// FOC setpoints variables
+static float setpoint_torque_current_mA = 0.0f;
+static float setpoint_flux_current_mA = 0.0f;
 static float setpoint_electrical_angle_rad = 0.0f;
 static float setpoint_flux_voltage_V = 0.0f;
 
-void API_FOC_Set_Torque_Flux_Currents_mA(float Iq_mA, float Id_mA)
-{
-	setpoint_torque_current_mA = Iq_mA;
-	setpoint_flux_current_mA = Id_mA;
-}
+// FOC variables
+static float present_Id_mA = 0.0;
+static float present_Iq_mA = 0.0f;
+static pid_context_t flux_pi;
+static pid_context_t torque_pi;
 
-// FOC private variables
-static int32_t current_samples = 0;
-volatile uint16_t ADC1_DMA[5] = { 0,0,0,0,0 }; 	// Dummy conversion (ST workaround for -x),
-volatile uint16_t ADC2_DMA[3] = { 0,0,0 }; 		// Dummy conversion (ST workaround for -x)
-static uint16_t motor_current_input_adc[3] = {0.0f,0.0f,0.0f};
+// FOC current sense
+static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
 static float motor_current_input_adc_offset[3] = {2464.0f,2482.0f,2485.0f};
-static float motor_current_input_adc_KmA = -29.41f; // V/mA // note : the (-) sign here
+static float const motor_current_input_adc_KmA = -29.41f; // V/mA // note : the (-) sign here
 // process phase current
 // Note : when current flows inward phase, shunt voltage is negative
 // Note : when current flows outward phase, shunt voltage is positive
 // Note : The current sign is positive when flowing in to a phase
 // Note : The current sign is negative when flowing out from a phase
 
-static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
-static float present_Id_mA = 0.0;
-static float present_Iq_mA = 0.0f;
-static pid_context_t flux_pi;
-static pid_context_t torque_pi;
-
-// foc analog measure
+// FOC analog measure
+static int32_t current_samples = 0;
+volatile uint16_t ADC1_DMA[5] = { 0,0,0,0,0 }; 	// Dummy conversion (ST workaround for -x),
+volatile uint16_t ADC2_DMA[3] = { 0,0,0 }; 		// Dummy conversion (ST workaround for -x)
+static float motor_current_input_adc[3] = {0.0f,0.0f,0.0f};
 static float potentiometer_input_adc = 0.0f;
 static float vbus_input_adc = 0.0f;
 static float temperature_input_adc = 0.0f;
 static float present_voltage_V = 0.0f;
 static float present_temperature_C = 0.0f;
 
-// foc performance monitoring (public)
+// FOC performance monitoring
 static float average_processing_time_us = 0.0f;
 static uint32_t foc_counter = 0;
 
-void LL_FOC_Update_Temperature() __attribute__((section (".ccmram")));
-void LL_FOC_Update_Voltage() __attribute__((section (".ccmram")));
+void API_FOC_Torque_Enable()
+{
+	foc_state = FOC_STATE_TORQUE_CONTROL;
+
+	setpoint_torque_current_mA = 0.0f;
+	setpoint_flux_current_mA = 0.0f;
+    setpoint_electrical_angle_rad = 0.0f;
+    setpoint_flux_voltage_V = 0.0f;
+
+    present_Id_mA = 0.0;
+    present_Iq_mA = 0.0f;
+
+	pid_reset(&flux_pi);
+	pid_reset(&torque_pi);
+}
+
+void API_FOC_Torque_Disable()
+{
+	foc_state = FOC_STATE_IDLE;
+	HAL_Delay(10);
+	LL_FOC_brake();
+}
+
+void API_FOC_Set_Torque_Flux_Currents_mA(float Iq_mA, float Id_mA)
+{
+	setpoint_torque_current_mA = Iq_mA;
+	setpoint_flux_current_mA = Id_mA;
+}
 
 // user API function
 // this function reset state of FOC
@@ -139,19 +148,11 @@ void API_FOC_Init()
 	HAL_ADC_Start_DMA(&hadc2,(uint32_t*)ADC2_DMA,3);
 	// CORDIC init
 	API_CORDIC_Processor_Init();
-	// Reset state
-	API_FOC_Reset();
 	// disable FOC
 	API_FOC_Torque_Disable();
 }
 
-// user API function
-// this function reset state of FOC
-void API_FOC_Reset()
-{
-	pid_reset(&flux_pi);
-	pid_reset(&torque_pi);
-}
+void LL_FOC_Update_Temperature() __attribute__((section (".ccmram")));
 
 // low level function
 // this function update present_temperature_C
@@ -185,6 +186,8 @@ void LL_FOC_Update_Temperature()
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_OVERHEATING);
 	}
 }
+
+void LL_FOC_Update_Voltage() __attribute__((section (".ccmram")));
 
 // low level function
 // this function update present_voltage_V
@@ -374,10 +377,6 @@ void API_FOC_Torque_Update()
 	{
 	case FOC_STATE_IDLE:
 		{
-			// don t use PI
-			pid_reset(&flux_pi);
-			pid_reset(&torque_pi);
-
 			// do brake
 			LL_FOC_brake();
 		}
@@ -433,10 +432,6 @@ void API_FOC_Torque_Update()
 		break;
 	case FOC_STATE_FLUX_CONTROL:
 		{
-			// don t use PI
-			pid_reset(&flux_pi);
-			pid_reset(&torque_pi);
-
 			// compute theta
 			float const theta_rad = normalize_angle(setpoint_electrical_angle_rad);
 

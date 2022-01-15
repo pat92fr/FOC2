@@ -457,9 +457,7 @@ int main(void)
 					setpoint_position_deg = positionSensor_getDegreeMultiturn();
 					// pid reset
 					pid_reset(&pd_position);
-					// foc reset
-					API_FOC_Reset();
-					// foc reset
+					// foc
 					API_FOC_Torque_Enable();
 				}
 
