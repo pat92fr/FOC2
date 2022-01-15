@@ -71,6 +71,7 @@ static float present_Iqs_mA = 0.0f;
 static pid_context_t flux_pi;
 static pid_context_t torque_pi;
 float theta_rad = 0.0f; // public // DEBUG
+float absolute_position_rad = 0.0f; // public // DEBUG
 
 // FOC current sense
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
@@ -406,7 +407,8 @@ void API_FOC_Torque_Update()
 			// computation ~7µs (-02)
 
 			// [Theta]
-			theta_rad = normalize_angle(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
+			absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
+			theta_rad = normalize_angle(absolute_position_rad*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
 
 			// [Cosine]
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
@@ -418,8 +420,6 @@ void API_FOC_Torque_Update()
 			// [Park Transformation]
 			present_Ids_mA = ( present_Ialpha * cosine_theta + present_Ibeta * sine_theta   );
 			present_Iqs_mA = (-present_Ialpha * sine_theta   + present_Ibeta * cosine_theta );
-
-			//setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f;
 
 			// [PI]
 			Vds = pi_process_antiwindup_clamp(

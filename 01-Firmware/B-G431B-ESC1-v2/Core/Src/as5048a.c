@@ -38,6 +38,7 @@ static float present_velocity_rad = 0.0f;
 // multi-turn position state
 static int32_t present_revolution = 0;
 static float present_position_multi_rad = 0.0f;
+float init_error_data_bits = 0.0f; // public // DEBUG
 
 #define ALPHA_VELOCITY 0.01f // 0.1f default
 
@@ -64,8 +65,8 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 		// when position is 0°, length is 16 bits
 		// when position is MAX = 2*PI*(1-1/4096)°, length is 16+4095 bits
 		// compute PWM width / PWM period * 4119bits that gives the number of 1 bits
-		// @150MHz, CHANNEL1 = period = 45500 with PSC=3
-		float const init_error_data_bits = 4119.0f*(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_2)/(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_1);
+		// @160MHz, CHANNEL1 = period = 53333 with PSC=2(+1)
+		init_error_data_bits = 4119.0f*(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_2)/(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_1);
 		// if data < 0 bits ==> must be an error
 		if(init_error_data_bits<(16.0f-0.8f)) // add a 0.8 margin due to IC TIMER PRECISION and PWM precision
 		{
@@ -84,7 +85,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			// reset error
 			position_sensor_error = 0;
 			// compute new position in radians and constrain it to [0..2pi[
-			present_position_rad = roundf(init_error_data_bits-16.0f)*bit_to_radians_ratio;
+			present_position_rad = ((init_error_data_bits-16.0f))*bit_to_radians_ratio;
 			if(present_position_rad<0.0f)
 				present_position_rad=0.0f;
 			if(present_position_rad>max_radians)
@@ -113,6 +114,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			last_position_time_us = present_time_us;
 			last_position_rad = present_position_rad;
 		}
+
 	}
 }
 
@@ -125,18 +127,16 @@ float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 	{
 		// set encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_TIMESTAMP;
-
-		// return current position
-		result = present_position_rad; // + present_velocity_rad*(float)(position_delta_time_us)/1000000.0f;;
+		// return error
+		result = 0.0f; // force ZERO
 	}
 	// check old sample error
 	else if(delta_t_us>1200) //1.2ms
 	{
 		// set encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING;
-		//HAL_Serial_Print(&serial,"%d %d (%d)\n",(int)time_us,(int)present_time_us, (int)delta_t_us);
-		// return current position (what ever)
-		result = present_position_rad;
+		// return error
+		result = 0.0f; // force ZERO
 	}
 	// normal
 	else
