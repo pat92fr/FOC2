@@ -183,10 +183,12 @@ void LL_FOC_Update_Temperature()
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_OVERHEATING;
 		//HAL_Serial_Print(&serial,"h");
 	}
-	else if( ((regs[REG_HARDWARE_ERROR_STATUS]&(1UL << HW_ERROR_BIT_OVERHEATING))!=0) && (present_temperature_C<max_temperature_C-12.0f)) // hard-coded hysteresis 12°C
+	else if( ((regs[REG_HARDWARE_ERROR_STATUS]&(1UL << HW_ERROR_BIT_OVERHEATING))!=0) ) // hard-coded hysteresis 12°C
 	{
-		// clear overheating error
-		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_OVERHEATING);
+		if(present_temperature_C<max_temperature_C-12.0f)
+			// clear overheating error
+			regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_OVERHEATING);
+		// wait for cooling
 	}
 	else
 	{
@@ -414,15 +416,10 @@ void API_FOC_Torque_Update()
 			float const present_Ibeta  = INV_SQRT3 * ( motor_current_mA[1] - motor_current_mA[2] );
 
 			// [Park Transformation]
-			/* no effect on glitch
-			float const alpha = 0.005f;
-			present_Ids_mA = ( present_Ialpha * cosine_theta + present_Ibeta * sine_theta   ) * alpha + (1.0f-alpha)*present_Ids_mA;
-			present_Iqs_mA = (-present_Ialpha * sine_theta   + present_Ibeta * cosine_theta ) * alpha + (1.0f-alpha)*present_Iqs_mA;
-			*/
 			present_Ids_mA = ( present_Ialpha * cosine_theta + present_Ibeta * sine_theta   );
 			present_Iqs_mA = (-present_Ialpha * sine_theta   + present_Ibeta * cosine_theta );
 
-			setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f;
+			//setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f;
 
 			// [PI]
 			Vds = pi_process_antiwindup_clamp(

@@ -108,6 +108,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			present_velocity_rad =
 					alpha_vel * (delta_position_rad / (float)position_delta_time_us * 1000000.0f)
 					+ (1.0f-alpha_vel) * present_velocity_rad;
+
 			// save last position
 			last_position_time_us = present_time_us;
 			last_position_rad = present_position_rad;

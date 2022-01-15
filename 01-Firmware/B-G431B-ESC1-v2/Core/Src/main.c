@@ -575,11 +575,11 @@ int main(void)
 			// Led STATUS
 			HAL_GPIO_WritePin(STATUS_GPIO_Port,STATUS_Pin,(regs[REG_LED]>0)||(regs[REG_HARDWARE_ERROR_STATUS]>0)?GPIO_PIN_SET:GPIO_PIN_RESET);
 
-			// DEBUG
-			if(potentiometer_input_adc>200)
-				regs[REG_TORQUE_ENABLE] = 1;
-			else
-				regs[REG_TORQUE_ENABLE] = 0;
+//			// DEBUG
+//			if(potentiometer_input_adc>200)
+//				regs[REG_TORQUE_ENABLE] = 1;
+//			else
+//				regs[REG_TORQUE_ENABLE] = 0;
 
 			// Pressing the button starts calibration
 			if(HAL_GPIO_ReadPin(BUTTON_GPIO_Port,BUTTON_Pin)==GPIO_PIN_RESET)
@@ -609,11 +609,11 @@ int main(void)
 		// TRACE
 		static uint32_t counter = 0;
 		if(((++counter)%100)==0)
-		{/*
-			HAL_Serial_Print(&serial,"%d %d\n",
-						(int)(RADIANS_TO_DEGREES(theta_rad)*10.0f),
-						(int)positionSensor_getDeltaTimeEstimation()
-					);*/
+		{
+//			HAL_Serial_Print(&serial,"%d %d\n",
+//						(int)(RADIANS_TO_DEGREES(theta_rad)*10.0f),
+//						(int)positionSensor_getDeltaTimeEstimation()
+//					);
 //			HAL_Serial_Print(&serial,"%d %d %d\n",
 //						(int)(setpoint_torque_current_mA),
 //						(int)(API_FOC_Get_Present_Torque_Current()),
