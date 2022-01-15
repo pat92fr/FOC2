@@ -69,7 +69,7 @@ class ram_frame(LabelFrame):
 		self.present_flux_current 	= 0
 		self.setpoint_torque_current = 0
 		self.setpoint_flux_current = 0
-		self.alpha = 0.05
+		self.alpha = 0.25
 
 		self.read_all()
 

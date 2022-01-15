@@ -35,6 +35,12 @@ float fconstrain_both(float x, float abs);
 uint32_t map(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max);
 float fmap(float x, float in_min, float in_max, float out_min, float out_max);
 
+inline double mfmod(float x,float y)
+{
+	float a = x/y;
+	return (a-(int)a)*y;
+}
+
 #define RADIANS_TO_DEGREES(rad) ((rad)*57.2957795130823208767981548f)
 #define DEGREES_TO_RADIANS(deg) ((deg)*0.01745329251994329576923690f)
 

@@ -116,12 +116,13 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 
 float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 {
-	uint16_t delta_t_us = time_us-present_time_us;
+	float result = 0.0f;
+	int16_t delta_t_us = (int16_t)(time_us-present_time_us);
 	// position has been received during FOC algorithm execution
-	if(delta_t_us>65500)
+	if(delta_t_us<0)
 	{
 		// return current position
-		return present_position_rad;
+		result= present_position_rad + present_velocity_rad*(float)(position_delta_time_us)/1000000.0f;;
 	}
 	// check old sample error
 	else if(delta_t_us>2000) //2ms
@@ -130,18 +131,17 @@ float API_AS5048A_Position_Sensor_Get_Radians_Estimation(uint16_t time_us)
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING;
 		//HAL_Serial_Print(&serial,"%d %d (%d)\n",(int)time_us,(int)present_time_us, (int)delta_t_us);
 		// return current position (what ever)
-		return present_position_rad;
+		result= present_position_rad;
 	}
 	// normal
 	else
 	{
 		// clear encoder error
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING);
-		// compute estimation*
-
-		return present_position_rad + present_velocity_rad*(float)(delta_t_us+position_delta_time_us)/1000000.0f;
+		// compute estimation
+		result= present_position_rad + present_velocity_rad*((float)delta_t_us+(float)position_delta_time_us)/1000000.0f;
 	}
-
+	return result;
 }
 
 float API_AS5048A_Position_Sensor_Get_Radians()

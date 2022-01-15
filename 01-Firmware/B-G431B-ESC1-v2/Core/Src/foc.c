@@ -37,23 +37,22 @@ extern OPAMP_HandleTypeDef hopamp3;
 // serial communication (UART2) for TRACEs
 // TODO : use STM32 CUBE MONITOR
 extern HAL_Serial_Handler serial;
-
-
-// FOC period at PWM output = 16kHz (check TIMER1 ARR value = 4999 and timer frequency =160MHz)
-static uint32_t const current_sample_drop_rate = 0;
-// 3:250us cycle
-// 2:187us cycle
-// 1:125us cycle <- default (conservative, allows debbuging)
-// 0: 62us cycle <- best possible (one FOC iteration takes about ~45us of processing time)
+extern float setpoint_torque_current_mA;
+extern float setpoint_flux_current_mA;
 
 // FOC private variables
 static int32_t current_samples = 0;
 volatile uint16_t ADC1_DMA[5] = { 0,0,0,0,0 }; 	// Dummy conversion (ST workaround for -x),
 volatile uint16_t ADC2_DMA[3] = { 0,0,0 }; 		// Dummy conversion (ST workaround for -x)
 static uint16_t motor_current_input_adc[3] = {0.0f,0.0f,0.0f};
-static uint16_t motor_current_sample_adc[3] = {0.0f,0.0f,0.0f};
 static float motor_current_input_adc_offset[3] = {2464.0f,2482.0f,2485.0f};
-static float motor_current_input_adc_mA[3] = {0.034f,0.034f,0.034f};
+static float motor_current_input_adc_KmA = -29.41f; // V/mA // note : the (-) sign here
+// process phase current
+// Note : when current flows inward phase, shunt voltage is negative
+// Note : when current flows outward phase, shunt voltage is positive
+// Note : The current sign is positive when flowing in to a phase
+// Note : The current sign is negative when flowing out from a phase
+
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
 static float present_Id_mA = 0.0;
 static float present_Iq_mA = 0.0f;
@@ -338,82 +337,64 @@ void API_FOC_Service_Update()
 // this function allow on-the-go synchronization angle adjustment
 // the open loop mode means that the present Id and Iq are forced to 0
 //    this may require adjustment of the Kp and Ki of both flux and torque PI regulator
-void API_FOC_Torque_Update(
-		float setpoint_torque_current_mA,
-		float setpoint_flux_current_mA
-)
+void API_FOC_Torque_Update()
 {
-	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-	// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
+// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
 
+	// performance monitoring
+	uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
 
-	// note : absolute position increases when turning CCW (encoder)
-	// note : FOC period is less than motor PWM period
-	// drop phase current samples a few times between each FOC iteration
-	if(current_samples>current_sample_drop_rate)
+	// check control mode
+	switch(regs[REG_CONTROL_MODE])
 	{
-		current_samples-=(current_sample_drop_rate+1);
-
-		// backup 3-phase currents as soon as possible
-		memcpy(motor_current_sample_adc,motor_current_input_adc,sizeof(uint16_t)*3);
-
-		// performance monitoring
-		uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
-
-		// process absolute position, and compute theta ahead using average processing time and velocity
-		float const absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
-
-		// process phase current
-		// Note : when current flows inward phase, shunt voltage is negative
-		// Note : when current flows outward phase, shunt voltage is positive
-		// Note : The current sign is positive when flowing in to a phase
-		// Note : The current sign is negative when flowing out from a phase
-		for(size_t index=0;index<3;++index)
-		{
-			 motor_current_mA[index]= -((float)motor_current_sample_adc[index]-motor_current_input_adc_offset[index])/motor_current_input_adc_mA[index]; // note : the (-) sign here
-		}
-
-		// process theta for Park and Clarke Transformation and compute cosine(theta) and sine(theta)
-		float const phase_offset_rad = DEGREES_TO_RADIANS((int16_t)(MAKE_SHORT(regs[REG_MOTOR_SYNCHRO_L],regs[REG_MOTOR_SYNCHRO_H])));
-		float const reg_pole_pairs = regs[REG_MOTOR_POLE_PAIRS];
-		float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
-		float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
-
-		// after this line ~11µs
-
-		float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
-		float cosine_theta = 0.0f;
-		float sine_theta = 0.0f;
-		// after this line ~10µs
-
-		API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
-
-
-		// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
-		float const present_Ialpha = (2.0f*motor_current_mA[0]-motor_current_mA[1]-motor_current_mA[2])/3.0f;
-		float const present_Ibeta = INV_SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
-		// Note : Ialpha synchonized with Ia (same phase/sign)
-		// Note : Ibeta follow Iaplha with 90° offset
-
-		// after this line ~8µs
-
-		// (Ialpha,Ibeta) [0..xxxmA] to (Id,Iq) [0..xxxmA] [Park Transformation]
-		present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
-		present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
-
-		// compute Vd and Vq
-		// computation ~4µs
-		float Vd = 0.0f;
-		float Vq = 0.0f;
-		if(regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE) // force PI reset when no control mode
+	case REG_CONTROL_MODE_IDLE:
 		{
 			pid_reset(&flux_pi);
 			pid_reset(&torque_pi);
+			LL_FOC_set_phase_voltage(0.0f,0.0f,1.0f,0.0f,present_voltage_V);
 		}
-		else
+		break;
+	case REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE:
 		{
+			// process absolute position, and compute theta ahead using average processing time and velocity
+			float const absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
+
+			// process theta for Park and Clarke Transformation and compute cosine(theta) and sine(theta)
+			float const phase_offset_rad = DEGREES_TO_RADIANS((int16_t)(MAKE_SHORT(regs[REG_MOTOR_SYNCHRO_L],regs[REG_MOTOR_SYNCHRO_H])));
+			float const reg_pole_pairs = regs[REG_MOTOR_POLE_PAIRS];
+			float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
+			float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
+
+			// after this line ~11µs
+
+			float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
+			float cosine_theta = 0.0f;
+			float sine_theta = 0.0f;
+			// after this line ~10µs
+
+			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
+
+
+			// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
+			float const present_Ialpha = (2.0f*motor_current_mA[0]-motor_current_mA[1]-motor_current_mA[2])/3.0f;
+			float const present_Ibeta = INV_SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
+			// Note : Ialpha synchonized with Ia (same phase/sign)
+			// Note : Ibeta follow Iaplha with 90° offset
+
+			// after this line ~8µs
+
+			// (Ialpha,Ibeta) [0..xxxmA] to (Id,Iq) [0..xxxmA] [Park Transformation]
+			present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
+			present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
+
+			// compute Vd and Vq
+			// computation ~4µs
+			float Vd = 0.0f;
+			float Vq = 0.0f;
+
 			// compute Id and Iq errors
 			float const error_Id = setpoint_flux_current_mA   - present_Id_mA;
 			float const error_Iq = setpoint_torque_current_mA - present_Iq_mA;
@@ -437,29 +418,37 @@ void API_FOC_Torque_Update(
 					torque_Ki,
 					present_voltage_V // output_limit
 			);
-		}
 
-		// voltage norm saturation Umax = Udc/sqrt(3)
-		// computation ~0.5µs
-		float const Vmax = present_voltage_V*INV_SQRT3;
-		float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
-		if(Vnorm>Vmax)
+			// voltage norm saturation Umax = Udc/sqrt(3)
+			// computation ~0.5µs
+			float const Vmax = present_voltage_V*INV_SQRT3;
+			float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
+			if(Vnorm>Vmax)
+			{
+				float const k = fabsf(Vmax/Vnorm);
+				Vq *= k;
+				Vd *= k;
+			}
+
+			// do inverse clarke and park transformation and update 3-phase PWM generation
+			LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
+
+		}
+		break;
+	case REG_CONTROL_MODE_CALIBRATION:
 		{
-			float const k = fabsf(Vmax/Vnorm);
-			Vq *= k;
-			Vd *= k;
+			pid_reset(&flux_pi);
+			pid_reset(&torque_pi);
 		}
-
-		// do inverse clarke and park transformation and update 3-phase PWM generation
-		LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
-
-		// performance monitoring
-		uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);
-		uint16_t const t_tp = t_end-t_begin;
-		static const float alpha_performance_monitoring = 0.001f;
-		average_processing_time_us = (1.0f-alpha_performance_monitoring)*average_processing_time_us+alpha_performance_monitoring*(float)t_tp;
-		++foc_counter;
+		break;
 	}
+
+	// performance monitoring
+	uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);
+	uint16_t const t_tp = t_end-t_begin;
+	static const float alpha_performance_monitoring = 0.001f;
+	average_processing_time_us = (1.0f-alpha_performance_monitoring)*average_processing_time_us+alpha_performance_monitoring*(float)t_tp;
+	++foc_counter;
 }
 
 
@@ -499,8 +488,11 @@ void API_FOC_It(ADC_HandleTypeDef *hadc)
 	{
 		if(__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim1))
 		{
-			// Filter (EWMA) position and voltage ADC samples
+			// phase current
 			motor_current_input_adc[0] = ADC1_DMA[1];
+			motor_current_mA[0]= ((float)motor_current_input_adc[0]-motor_current_input_adc_offset[0])*motor_current_input_adc_KmA;
+			++current_samples;
+			// aux
 			potentiometer_input_adc = ADC1_DMA[2];
 			vbus_input_adc = ADC1_DMA[3];
 			temperature_input_adc = ADC1_DMA[4];
@@ -514,16 +506,25 @@ void API_FOC_It(ADC_HandleTypeDef *hadc)
 	{
 		if(__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim1))
 		{
-			// Filter (EWMA) position and voltage ADC samples
+			// phase current
 			motor_current_input_adc[1] = ADC2_DMA[1];
 			motor_current_input_adc[2] = ADC2_DMA[2];
-			++current_samples;
+			motor_current_mA[1]= ((float)motor_current_input_adc[1]-motor_current_input_adc_offset[1])*motor_current_input_adc_KmA;
+			motor_current_mA[2]= ((float)motor_current_input_adc[2]-motor_current_input_adc_offset[2])*motor_current_input_adc_KmA;
+			current_samples+=2;
 		}
 		else
 		{
 			motor_current_input_adc_offset[1] = ALPHA_CURRENT_SENSE_OFFSET*(float)(ADC2_DMA[1]) + (1.0f-ALPHA_CURRENT_SENSE_OFFSET)*motor_current_input_adc_offset[1];
 			motor_current_input_adc_offset[2] = ALPHA_CURRENT_SENSE_OFFSET*(float)(ADC2_DMA[2]) + (1.0f-ALPHA_CURRENT_SENSE_OFFSET)*motor_current_input_adc_offset[2];
 		}
+	}
+
+	if(current_samples>=3)
+	{
+		current_samples=0;
+		// FOC loop
+		API_FOC_Torque_Update();
 	}
 }
 

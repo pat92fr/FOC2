@@ -57,8 +57,8 @@
 #define PID_LOOP_PERIOD 250
 
 // FOC service loop period in µs
-//  normal setting is 5000us (200Hz)
-#define SERVICE_LOOP_PERIOD 5000
+//  normal setting is 10000us (100Hz)
+#define SERVICE_LOOP_PERIOD 10000
 
 // Autocalibration at startup
 //   uncomment this line for calibrating the ESC/MOTOR at startup
@@ -101,6 +101,9 @@ DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
+
+float setpoint_torque_current_mA = 0.0f;
+float setpoint_flux_current_mA = 0.0f;
 
 // serial communitation
 HAL_Serial_Handler serial;
@@ -381,8 +384,6 @@ int main(void)
 	float setpoint_position_deg = 0.0f;
 	float setpoint_velocity_dps = 0.0f;
 	float error_velocity_dps = 0.0f;
-	float setpoint_torque_current_mA = 0.0f;
-	float setpoint_flux_current_mA = 0.0f;
 	uint16_t last_mode = REG_CONTROL_MODE_IDLE;
 	uint32_t pid_counter = 0;
 	uint32_t mlp_counter = 0;
@@ -392,6 +393,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
+	{
+		// Motor PWM init and BRAKE
+		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,0);
+		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,0);
+		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,0);
+	}
 
 	// CAN bus watchdog (time-out=1s)
 	if( (HAL_GetTick()>can_last_time+1000) && can_armed )
@@ -671,12 +679,6 @@ int main(void)
 		  packet_handler(c);
 		}
 	}
-
-	// FOC torque update
-	API_FOC_Torque_Update(
-		setpoint_torque_current_mA,
-		setpoint_flux_current_mA
-	);
 	++mlp_counter;
   }
   /* USER CODE END 3 */

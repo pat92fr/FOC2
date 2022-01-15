@@ -99,6 +99,12 @@ void HardFault_Handler(void)
   while (1)
   {
     /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+
+	  // TODO : MOTOR PHASE OFF
+	  // TODO : MOTOR PHASE OFF
+	  // TODO : MOTOR PHASE OFF
+	  // TODO : MOTOR PHASE OFF
+
     /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }
