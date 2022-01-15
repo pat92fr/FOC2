@@ -359,6 +359,16 @@ void API_FOC_Torque_Update()
 	float cosine_theta = 0.0f;
 	float sine_theta = 1.0f;
 
+	// synch with registers
+	float const phase_offset_rad = DEGREES_TO_RADIANS((int16_t)(MAKE_SHORT(regs[REG_MOTOR_SYNCHRO_L],regs[REG_MOTOR_SYNCHRO_H])));
+	float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
+	float const reg_pole_pairs = regs[REG_MOTOR_POLE_PAIRS];
+	float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
+	float const flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
+	float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
+	float const torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
+	float const torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/100000000.0f;
+
 	// check control mode
 	switch(foc_state)
 	{
@@ -374,65 +384,39 @@ void API_FOC_Torque_Update()
 		break;
 	case FOC_STATE_TORQUE_CONTROL:
 		{
-			// process absolute position, and compute theta ahead using average processing time and velocity
-			float const absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
+			// computation ~8µs
 
-			// process theta for Park and Clarke Transformation and compute cosine(theta) and sine(theta)
-			float const phase_offset_rad = DEGREES_TO_RADIANS((int16_t)(MAKE_SHORT(regs[REG_MOTOR_SYNCHRO_L],regs[REG_MOTOR_SYNCHRO_H])));
-			float const reg_pole_pairs = regs[REG_MOTOR_POLE_PAIRS];
-			float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
-			float const phase_synchro_offset_rad = DEGREES_TO_RADIANS((float)(MAKE_SHORT(regs[REG_GOAL_SYNCHRO_OFFSET_L],regs[REG_GOAL_SYNCHRO_OFFSET_H]))); // manual synchro triming
+			// [Theta]
+			float const theta_rad = mfmod(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
 
-			// after this line ~11µs
-
-			float const theta_rad = mfmod(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
-
-			// after this line ~10µs
+			// [Cosine]
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
+			// [Clarke Transformation]
+			float const present_Ialpha = ( 2.0f * motor_current_mA[0] - motor_current_mA[1] - motor_current_mA[2] ) / 3.0f;
+			float const present_Ibeta  = INV_SQRT3 * ( motor_current_mA[1] - motor_current_mA[2] );
 
-			// phase current (Ia,Ib,Ic) [0..xxxmA] to (Ialpha,Ibeta) [0..xxxmA] [Clarke Transformation]
-			float const present_Ialpha = (2.0f*motor_current_mA[0]-motor_current_mA[1]-motor_current_mA[2])/3.0f;
-			float const present_Ibeta = INV_SQRT3*(motor_current_mA[1]-motor_current_mA[2]);
-			// Note : Ialpha synchonized with Ia (same phase/sign)
-			// Note : Ibeta follow Iaplha with 90° offset
-
-			// after this line ~8µs
-
-			// (Ialpha,Ibeta) [0..xxxmA] to (Id,Iq) [0..xxxmA] [Park Transformation]
+			// [Park Transformation]
 			present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
 			present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
 
-			// compute Id and Iq errors
-			float const error_Id = setpoint_flux_current_mA   - present_Id_mA;
-			float const error_Iq = setpoint_torque_current_mA - present_Iq_mA;
-
-			// compute Vd and Vq
-			// computation ~4µs
-
-			// flux PI
-			float const flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
-			float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
+			// [PI]
 			Vd = pi_process_antiwindup_clamp(
 					&flux_pi,
-					error_Id,
+					setpoint_flux_current_mA - present_Id_mA,
 					flux_Kp,
 					flux_Ki,
 					present_voltage_V // output_limit
 			);
-			// torque PIFF
-			float const torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
-			float const torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/100000000.0f;
 			Vq = pi_process_antiwindup_clamp(
 					&torque_pi,
-					error_Iq,
+					setpoint_torque_current_mA - present_Iq_mA,
 					torque_Kp,
 					torque_Ki,
 					present_voltage_V // output_limit
 			);
 
 			// voltage norm saturation Umax = Udc/sqrt(3)
-			// computation ~0.5µs
 			float const Vmax = present_voltage_V*INV_SQRT3;
 			float const Vnorm = sqrtf(Vd*Vd+Vq*Vq);
 			if(Vnorm>Vmax)
@@ -545,11 +529,10 @@ void API_FOC_It(ADC_HandleTypeDef *hadc)
 			motor_current_input_adc_offset[2] = ALPHA_CURRENT_SENSE_OFFSET*(float)(ADC2_DMA[2]) + (1.0f-ALPHA_CURRENT_SENSE_OFFSET)*motor_current_input_adc_offset[2];
 		}
 	}
-
+	// once the 3 phase current are acquired, call for FOC
 	if(current_samples>=3)
 	{
 		current_samples=0;
-		// FOC loop
 		API_FOC_Torque_Update();
 	}
 }
