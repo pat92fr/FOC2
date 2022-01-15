@@ -349,11 +349,6 @@ void API_FOC_Service_Update()
 //    this may require adjustment of the Kp and Ki of both flux and torque PI regulator
 void API_FOC_Torque_Update()
 {
-// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-// TODO CACHE REGISTER, DO NOT ACCESS REGISTER FROM HERE
-
 	// performance monitoring
 	uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
 
@@ -383,7 +378,7 @@ void API_FOC_Torque_Update()
 		break;
 	case FOC_STATE_TORQUE_CONTROL:
 		{
-			// computation ~8µs
+			// computation ~7µs (-02)
 
 			// [Theta]
 			float const theta_rad = mfmod(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
