@@ -29,6 +29,12 @@ float fconstrain_both(float x, float abs)
     return x;
 }
 
+float mfmod(float x,float y)
+{
+	float a = x/y;
+	return (a-(int)a)*y;
+}
+
 uint32_t map(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max)
 {
     if(x<=in_min) return out_min;
@@ -45,7 +51,7 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max)
 
 float normalize_angle(float angle_rad)
 {
-	float const a = fmodf(angle_rad, M_2PI);
+	float const a = mfmod(angle_rad, M_2PI);
 	return a >= 0.0f ? a : (a + M_2PI);
 }
 

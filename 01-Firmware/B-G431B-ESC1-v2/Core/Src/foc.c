@@ -385,7 +385,7 @@ void API_FOC_Torque_Update()
 
 			// after this line ~11µs
 
-			float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
+			float const theta_rad = mfmod(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
 
 			// after this line ~10µs
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
