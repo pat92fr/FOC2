@@ -30,7 +30,7 @@ static float delta_position_rad = 0.0f;
 static float const bit_to_radians_ratio = M_2PI/4096.0f;
 static float const max_radians = M_2PI/4096.0f*4095.0f;
 // velocity state
-static uint16_t position_delta_time_us = 0;
+static int16_t position_delta_time_us = 0;
 static uint16_t last_position_time_us = 0;
 static float last_position_rad = 0.0f;
 static float present_velocity_rad = 0.0f;
@@ -102,7 +102,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			}
 			present_position_multi_rad = present_position_rad+(float)present_revolution*M_2PI;
 			// compute velocity
-			position_delta_time_us = present_time_us-last_position_time_us;
+			position_delta_time_us = (int16_t)(present_time_us-last_position_time_us);
 			float const alpha_vel = (float)(regs[REG_EWMA_ENCODER]+1)/2560.0f; // 255 => B=0.1, 1 => beta = 0.0004
 			present_velocity_rad =
 					alpha_vel * (delta_position_rad / (float)position_delta_time_us * 1000000.0f)
