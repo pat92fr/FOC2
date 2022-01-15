@@ -182,11 +182,17 @@ void LL_FOC_Update_Temperature()
 		regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_OVERHEATING;
 		//HAL_Serial_Print(&serial,"h");
 	}
+	else if( ((regs[REG_HARDWARE_ERROR_STATUS]&(1UL << HW_ERROR_BIT_OVERHEATING))!=0) && (present_temperature_C<max_temperature_C-12.0f)) // hard-coded hysteresis 12°C
+	{
+		// clear overheating error
+		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_OVERHEATING);
+	}
 	else
 	{
 		// clear overheating error
 		regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_OVERHEATING);
 	}
+
 }
 
 void LL_FOC_Update_Voltage() __attribute__((section (".ccmram")));
@@ -397,7 +403,7 @@ void API_FOC_Torque_Update()
 			// computation ~7µs (-02)
 
 			// [Theta]
-			float const theta_rad = mfmod(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
+			float const theta_rad = mfmod(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse + phase_offset_rad + phase_synchro_offset_rad,M_2PI);
 
 			// [Cosine]
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
@@ -407,8 +413,13 @@ void API_FOC_Torque_Update()
 			float const present_Ibeta  = INV_SQRT3 * ( motor_current_mA[1] - motor_current_mA[2] );
 
 			// [Park Transformation]
-			present_Ids_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
-			present_Iqs_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
+			/* no effect on glitch
+			float const alpha = 0.005f;
+			present_Ids_mA = ( present_Ialpha * cosine_theta + present_Ibeta * sine_theta   ) * alpha + (1.0f-alpha)*present_Ids_mA;
+			present_Iqs_mA = (-present_Ialpha * sine_theta   + present_Ibeta * cosine_theta ) * alpha + (1.0f-alpha)*present_Iqs_mA;
+			*/
+			present_Ids_mA = ( present_Ialpha * cosine_theta + present_Ibeta * sine_theta   );
+			present_Iqs_mA = (-present_Ialpha * sine_theta   + present_Ibeta * cosine_theta );
 
 			// [PI]
 			Vds = pi_process_antiwindup_clamp(
@@ -426,6 +437,7 @@ void API_FOC_Torque_Update()
 					present_voltage_V // output_limit
 			);
 
+
 			// voltage norm saturation Umax = Udc/sqrt(3)
 			float const Vmax = present_voltage_V*INV_SQRT3;
 			float const Vnorm = sqrtf(Vds*Vds+Vqs*Vqs);
@@ -436,6 +448,8 @@ void API_FOC_Torque_Update()
 				Vds *= k;
 			}
 
+			Vds=-1.0f;
+			Vqs=3.00;
 			// do inverse clarke and park transformation and update 3-phase PWM generation
 			LL_FOC_set_phase_voltage(Vds,Vqs,cosine_theta,sine_theta,present_voltage_V);
 

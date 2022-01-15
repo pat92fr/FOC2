@@ -70,6 +70,7 @@ inline HAL_StatusTypeDef API_CORDIC_Processor_Update(float theta_rad, float * c,
 	}
 	else
 	{
+		//regs[REG_PROTOCOL_CRC_FAIL]++; // DEBUG
 		// TODO hardware error !
 		// TODO hardware error !
 		// TODO hardware error !
