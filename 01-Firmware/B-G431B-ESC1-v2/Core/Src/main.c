@@ -230,30 +230,30 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 		  // check payload size = 8
 		  if(can_armed && payload_length==2) // Feed Forward Torque only
 		  {
+			  // TODO Frist BYTE is CODE OP : 0:Torque, 1:VEL 2:POS  N:Is Write M:is Read FF is start of enable
+
 			  // decode payload filed
 			  regs[REG_GOAL_TORQUE_CURRENT_MA_L] = RxData[0];
 			  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = RxData[1];
 			  //HAL_Serial_Print(&serial,"CAN (2)\n");
 		  }
-		  else if(can_armed && payload_length==4) // Position and speed, Kp/Kd unchanged
+		  else if(can_armed && payload_length==3) // Speed, VEL Kp
 		  {
 			  // decode payload filed
-			  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
-			  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
-			  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
-			  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
-			  //HAL_Serial_Print(&serial,"CAN (4)\n");
+			  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[0];
+			  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[1];
+			  regs[REG_GOAL_VEL_KP]  = RxData[4];
+			  //HAL_Serial_Print(&serial,"CAN (3)\n");
 		  }
-		  else if(can_armed && payload_length==6) // Position and speed, Kp/Kd update
+		  else if(can_armed && payload_length==5) // Position, POS Kp and Kd, VEL Kp
 		  {
 			  // decode payload filed
 			  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
 			  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
-			  regs[REG_GOAL_VELOCITY_DPS_L] = RxData[2];
-			  regs[REG_GOAL_VELOCITY_DPS_H] = RxData[3];
-			  regs[REG_GOAL_POS_KP]  = RxData[4];
-			  regs[REG_GOAL_POS_KD]  = RxData[5];
-			  //HAL_Serial_Print(&serial,"CAN (6)\n");
+			  regs[REG_GOAL_POS_KP]  = RxData[3];
+			  regs[REG_GOAL_POS_KD]  = RxData[4];
+			  regs[REG_GOAL_VEL_KP]  = RxData[5];
+			  //HAL_Serial_Print(&serial,"CAN (5)\n");
 		  }
 		  else if(payload_length==8) // position, speed, and torque feed forward, Kp/kd update
 		  {
@@ -272,10 +272,14 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				  regs[REG_GOAL_TORQUE_CURRENT_MA_H] = 0;
 				  regs[REG_GOAL_POS_KP]  = 0;
 				  regs[REG_GOAL_POS_KD]  = 0;
+				  regs[REG_GOAL_VEL_KP]  = 0;
 				  //HAL_Serial_Print(&serial,"CAN request ARM\n");
 			  }
 			  else if(can_armed)
 			  {
+				  // replace by access read/write to register !
+
+
 				  // decode payload filed
 				  regs[REG_GOAL_POSITION_DEG_L] = RxData[0];
 				  regs[REG_GOAL_POSITION_DEG_H] = RxData[1];
@@ -441,6 +445,10 @@ int main(void)
 					// reset flux refenrece
 					regs[REG_GOAL_FLUX_CURRENT_MA_L] = 0;
 					regs[REG_GOAL_FLUX_CURRENT_MA_H] = 0;
+					// reset K
+					regs[REG_GOAL_POS_KP] = 0;
+					regs[REG_GOAL_POS_KD] = 0;
+					regs[REG_GOAL_VEL_KP] = 0;
 					// reset setpoints
 					setpoint_position_deg = 0.0f;
 					setpoint_velocity_dps = 0.0f;
