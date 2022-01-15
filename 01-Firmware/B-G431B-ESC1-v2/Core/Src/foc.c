@@ -39,6 +39,8 @@ extern OPAMP_HandleTypeDef hopamp3;
 extern HAL_Serial_Handler serial;
 extern float setpoint_torque_current_mA;
 extern float setpoint_flux_current_mA;
+float setpoint_electrical_angle_rad = 0.0f;
+float setpoint_flux_voltage_V = 0.0f;
 
 // FOC private variables
 static int32_t current_samples = 0;
@@ -174,87 +176,34 @@ void LL_FOC_Update_Voltage()
 
 
 // user API function
-// this function process an open-loop FOC from electrical angle and voltage setpoints
-void API_FOC_Set_Flux_Angle(
-		float setpoint_electrical_angle_rad,
-		float setpoint_flux_voltage_V
-)
-{
-	// check temperature and voltage
-	LL_FOC_Update_Temperature();
-	LL_FOC_Update_Voltage();
-
-	// compute theta
-	float const theta_rad = normalize_angle(setpoint_electrical_angle_rad);
-
-	// compute cosine and sine
-	static float cosine_theta = 0.0f;
-	static float sine_theta = 0.0f;
-	API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
-
-	// compute (Vd,Vq) [-max_voltage_V/2,max_voltage_V/2]
-	float const Vd = fconstrain(setpoint_flux_voltage_V,-(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]/2.0f,(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]/2.0f); // torque setpoint open loop
-	float const Vq = 0.0f; // no torque
-
-	// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-	LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
-}
-
-// user API function
-// this function process an open-loop FOC from electrical velocity and voltage setpoints
-void API_FOC_Set_Flux_Velocity(
-		uint16_t present_time_us,
-		float setpoint_electrical_velocity_dps,
-		float setpoint_flux_voltage_V
-)
-{
-	// check temperature and voltage
-	LL_FOC_Update_Temperature();
-	LL_FOC_Update_Voltage();
-
-	// compute theta
-	static float theta_rad = 0.0f;
-	static float last_time_us = 0.0f;
-	uint16_t delta_t_us = last_time_us-present_time_us;
-	last_time_us = present_time_us;
-	theta_rad += DEGREES_TO_RADIANS(setpoint_electrical_velocity_dps) * (float)delta_t_us/1000000.0f;
-
-	// compute cosine and sine
-	static float cosine_theta = 0.0f;
-	static float sine_theta = 0.0f;
-	API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
-
-	// compute (Vd,Vq) [-max_voltage_V/2,max_voltage_V/2]
-	float const Vd = fconstrain(setpoint_flux_voltage_V,-(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]/2.0f,(float)regs[REG_HIGH_VOLTAGE_LIMIT_VALUE]/2.0f); // torque setpoint open loop
-	float const Vq = 0.0f; // no torque
-
-	// do inverse clarke and park transformation and update TIMER1 register (3-phase PWM generation)
-	LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
-}
-
-// user API function
 // this function synchronize physical and electrical angles, set motor normal/reverse rotation, and check pole pairs
 // this function uses REG_MOTOR_POLE_PAIRS register
 int API_FOC_Calibrate()
 {
+    // reset setpoints
+    setpoint_electrical_angle_rad = 0.0f;
+    setpoint_flux_voltage_V = 0.0f;
+
 	// reset settings
 	regs[REG_INV_PHASE_MOTOR] = 0;
 	regs[REG_MOTOR_SYNCHRO_L] = 0;
 	regs[REG_MOTOR_SYNCHRO_H] = 0;
+	regs[REG_MOTOR_SYNCHRO_H] = 0;
+
+	// change mode
+	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_POSITION_FLUX;
 
 	// find natural direction
 
 	// set electrical angle
-	float setpoint_electrical_angle_rad = M_3PI_2;
-	float setpoint_flux_voltage_V = 1.0f; // hard-coded V setpoint
-	API_FOC_Set_Flux_Angle(setpoint_electrical_angle_rad,setpoint_flux_voltage_V);
+	setpoint_electrical_angle_rad = M_3PI_2;
+	setpoint_flux_voltage_V = 1.0f; // hard-coded V setpoint
 	HAL_Delay(100);
 
     // move one electrical revolution forward
     for (int i = 0; i <=500; ++i )
     {
     	setpoint_electrical_angle_rad = M_3PI_2 + M_2PI * i / 500.0f;
-    	API_FOC_Set_Flux_Angle(setpoint_electrical_angle_rad,setpoint_flux_voltage_V);
     	HAL_Delay(2);
     }
     HAL_Delay(200);
@@ -266,7 +215,6 @@ int API_FOC_Calibrate()
     for (int i = 500; i >=0; --i )
     {
     	setpoint_electrical_angle_rad = M_3PI_2 + M_2PI * i / 500.0f;
-    	API_FOC_Set_Flux_Angle(setpoint_electrical_angle_rad,setpoint_flux_voltage_V);
     	HAL_Delay(2);
     }
     HAL_Delay(200);
@@ -275,7 +223,11 @@ int API_FOC_Calibrate()
     float const end_angle = positionSensor_getRadians();
 
     // release motor
-    API_FOC_Set_Flux_Angle(0.0f,0.0f);
+    setpoint_electrical_angle_rad = 0.0f;
+    setpoint_flux_voltage_V = 0.0f;
+
+	// change mode
+	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
 
     // determine the direction the sensor moved
     float const delta_angle = mid_angle-end_angle;
@@ -306,7 +258,11 @@ int API_FOC_Calibrate()
     // set electrical angle
     setpoint_electrical_angle_rad = 0.0f;
     setpoint_flux_voltage_V = 1.0f; // hard-coded V setpoint
-    API_FOC_Set_Flux_Angle(setpoint_electrical_angle_rad,setpoint_flux_voltage_V);
+
+	// change mode
+	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_POSITION_FLUX;
+
+	// wait
     HAL_Delay(1000);
     positionSensor_update();
     float const reverse = regs[REG_INV_PHASE_MOTOR] == 0 ? 1.0f : -1.0f;
@@ -315,8 +271,12 @@ int API_FOC_Calibrate()
 	regs[REG_MOTOR_SYNCHRO_L] = LOW_BYTE((int)RADIANS_TO_DEGREES(phase_synchro_offset_rad));
 	regs[REG_MOTOR_SYNCHRO_H] = HIGH_BYTE((int)RADIANS_TO_DEGREES(phase_synchro_offset_rad));
 
-	// release motor
-	API_FOC_Set_Flux_Angle(0.0f,0.0f);
+    // release motor
+    setpoint_electrical_angle_rad = 0.0f;
+    setpoint_flux_voltage_V = 0.0f;
+
+	// change mode
+	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
 
 	// store calibration into EEPROM
 	store_eeprom_regs();
@@ -347,6 +307,11 @@ void API_FOC_Torque_Update()
 	// performance monitoring
 	uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
 
+	float Vd = 0.0f;
+	float Vq = 0.0f;
+	float cosine_theta = 0.0f;
+	float sine_theta = 1.0f;
+
 	// check control mode
 	switch(regs[REG_CONTROL_MODE])
 	{
@@ -354,7 +319,6 @@ void API_FOC_Torque_Update()
 		{
 			pid_reset(&flux_pi);
 			pid_reset(&torque_pi);
-			LL_FOC_set_phase_voltage(0.0f,0.0f,1.0f,0.0f,present_voltage_V);
 		}
 		break;
 	case REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE:
@@ -371,10 +335,8 @@ void API_FOC_Torque_Update()
 			// after this line ~11µs
 
 			float const theta_rad = fmodf(absolute_position_rad*reg_pole_pairs*reverse,M_2PI) + phase_offset_rad + phase_synchro_offset_rad; // theta
-			float cosine_theta = 0.0f;
-			float sine_theta = 0.0f;
-			// after this line ~10µs
 
+			// after this line ~10µs
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
 
 
@@ -392,8 +354,7 @@ void API_FOC_Torque_Update()
 
 			// compute Vd and Vq
 			// computation ~4µs
-			float Vd = 0.0f;
-			float Vq = 0.0f;
+
 
 			// compute Id and Iq errors
 			float const error_Id = setpoint_flux_current_mA   - present_Id_mA;
@@ -430,18 +391,30 @@ void API_FOC_Torque_Update()
 				Vd *= k;
 			}
 
-			// do inverse clarke and park transformation and update 3-phase PWM generation
-			LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 
 		}
 		break;
-	case REG_CONTROL_MODE_CALIBRATION:
+	case REG_CONTROL_MODE_POSITION_FLUX:
 		{
+			// don t use PI
 			pid_reset(&flux_pi);
 			pid_reset(&torque_pi);
+
+			// compute theta
+			float const theta_rad = normalize_angle(setpoint_electrical_angle_rad);
+
+			// compute cosine and sine
+			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
+
+			// compute (Vd,Vq)
+			Vd = setpoint_flux_voltage_V; // torque setpoint open loop
+			Vq = 0.0f; // no torque
 		}
 		break;
 	}
+	// do inverse clarke and park transformation and update 3-phase PWM generation
+	LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
+
 
 	// performance monitoring
 	uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);

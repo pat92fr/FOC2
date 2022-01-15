@@ -394,6 +394,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
+
+		// TODO : add FOC time out IT
+		// TODO : add FOC time out IT
+		// TODO : add FOC time out IT
+		// TODO : add FOC time out IT
 	{
 		// Motor PWM init and BRAKE
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,0);

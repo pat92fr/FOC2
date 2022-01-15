@@ -15,9 +15,7 @@ extern "C" {
 #include "stm32g4xx_hal.h"
 
 void API_FOC_Init();
-
 int API_FOC_Calibrate();
-
 void API_FOC_Reset();
 
 // low priority low frequency process
@@ -25,17 +23,6 @@ void API_FOC_Service_Update()  __attribute__((section (".ccmram")));
 
 // high priority high frequency process
 void API_FOC_Torque_Update()  __attribute__((section (".ccmram")));
-
-void API_FOC_Set_Flux_Angle(
-		float setpoint_electrical_angle_rad,
-		float setpoint_flux_voltage_V
-);
-
-void API_FOC_Set_Flux_Velocity(
-		uint16_t present_time_us,
-		float setpoint_electrical_velocity_dps,
-		float setpoint_flux_voltage_V
-);
 
 float API_FOC_Get_Present_Torque_Current();
 float API_FOC_Get_Present_Flux_Current();

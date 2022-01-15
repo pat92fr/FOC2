@@ -42,7 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+extern TIM_HandleTypeDef htim1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,6 +94,10 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
+	// Motor PWM init and BRAKE
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,0);
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,0);
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,0);
 
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
@@ -104,7 +108,6 @@ void HardFault_Handler(void)
 	  // TODO : MOTOR PHASE OFF
 	  // TODO : MOTOR PHASE OFF
 	  // TODO : MOTOR PHASE OFF
-
     /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }
