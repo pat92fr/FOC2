@@ -12,11 +12,12 @@
 #include "control_table.h"
 
 // hard-coded settings
-#define MAX_PWM_DUTY_CYCLE 			0.95f 	// %
-#define MIN_PWM_DUTY_CYCLE 			0.05f 	// %
+#define MAX_PWM_DUTY_CYCLE 			0.94f 	// %
+#define MIN_PWM_DUTY_CYCLE 			0.06f 	// %
 	// with a PWM frequency (20Khz and more), deadtime must be taken in account.
 	// CUBEMX configuration : deadtime = 128 at f=160MHz ==> deadtime = 800ns
 	// MIN/MAX DUTY CYCLE is set in order to allow current sense when TIM1 update event triggered (800ns is about 2% PWM at 20KHz)
+	// MIN/MAX DUTY CYCLE is set in order to allow current sense when TIM1 update event triggered (800ns is about 4% PWM at 40KHz)
 
 // peripherals
 extern TIM_HandleTypeDef htim1;
@@ -45,11 +46,11 @@ inline void LL_FOC_set_phase_voltage( float Vd, float Vq, float cosine_theta, fl
 	float const duty_cycle_PWMa = fconstrain((Va-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
 	float const duty_cycle_PWMb = fconstrain((Vb-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
 	float const duty_cycle_PWMc = fconstrain((Vc-Vneutral)/present_voltage_V+0.5f,MIN_PWM_DUTY_CYCLE,MAX_PWM_DUTY_CYCLE);
-	// update TIMER CCR registers and apply BRAKE in case of hardware failure or control mode desactivated
-	if( (regs[REG_HARDWARE_ERROR_STATUS] != 0) && (regs[REG_CONTROL_MODE] == REG_CONTROL_MODE_IDLE) )
+	// update TIMER CCR registers and apply BRAKE in case of hardware failure or torque disable
+	if( regs[REG_HARDWARE_ERROR_STATUS] != 0 ) // fail-safe
 	{
 		// compute a valid BRAKE value
-		uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1; // note : 0 is OK too
+		uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,CCRx);
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRx);
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRx);
@@ -71,6 +72,18 @@ inline void LL_FOC_set_phase_voltage( float Vd, float Vq, float cosine_theta, fl
 		__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRc);
 	}
 }
+
+void LL_FOC_brake() __attribute__((always_inline));
+
+inline void LL_FOC_brake()
+{
+	// compute a valid BRAKE value
+	uint16_t const CCRx = (uint16_t)(0.5f*(float)(__HAL_TIM_GET_AUTORELOAD(&htim1)+1))-1;
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1,CCRx);
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2,CCRx);
+	__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3,CCRx);
+}
+
 
 #ifdef __cplusplus
 }

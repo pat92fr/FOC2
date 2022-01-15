@@ -25,9 +25,9 @@ class ram_frame(LabelFrame):
 		self.start_time = time.time()*1000.0
 
 		self.gui_spacer("")
-		#self.gui_entry("Torque Enable", "torque_enable", 0, False, True, False, 0x80, 1, 1 )
+		self.gui_entry("Torque Enable", "torque_enable", 0, True, True, True, 0x80, 1, 1 )
 		self.gui_entry("LED", "led", 0, True, True, True, 0x81, 1, 1 )
-		self.gui_entry("Control Mode", "control_mode", 0, True, True, True, 0x82, 1, 1 )
+		self.gui_entry("Control Mode", "control_mode", 0, False, True, False, 0x82, 1, 1 )
 		self.gui_spacer("---")
 		self.gui_entry("Goal Position (deg)", "goal_position", 0, True, True, True, 0x83, 10, 2 )
 		self.gui_entry("Goal Velocity (dps)", "goal_velocity", 0, True, True, True, 0x85, 1, 2 )
@@ -186,8 +186,9 @@ class ram_frame(LabelFrame):
 				)
 
 				if self.counter == 0:
+					self.variables['torque_enable_local'].set(str(result[0]))
 					self.variables['led_local'].set(str(result[1]))
-					self.variables['control_mode_local'].set(str(result[2]))
+					#self.variables['control_mode_local'].set(str(result[2]))
 					self.variables['goal_position_local'].set(str( goal_position ))
 					self.variables['goal_velocity_local'].set(str( goal_velocity ))
 					self.variables['goal_torque_current_local'].set(str( goal_torque_current ))
@@ -198,7 +199,7 @@ class ram_frame(LabelFrame):
 					self.variables['goal_synchro_offset_local'].set(str( goal_synchro_offset ))
 					#self.variables['goal_open_loop_local'].set(str( result[15] ))
 		
-				#self.variables['torque_enable_servo'].set(str(result[0]))
+				self.variables['torque_enable_servo'].set(str(result[0]))
 				self.variables['led_servo'].set(str(result[1]))
 				self.variables['control_mode_servo'].set(str(result[2]))
 

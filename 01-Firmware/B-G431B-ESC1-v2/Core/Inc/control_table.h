@@ -217,16 +217,6 @@ extern "C" {
 
 #define REG_EWMA_ENCODER_VALUE 255
 
-// REGISTER CONTROL MODE VALUES //////////////////////////////////////////////////////
-
-#define REG_CONTROL_MODE_IDLE 0
-#define REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE 1
-#define REG_CONTROL_MODE_POSITION_FLUX 10
-// #define REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE_VELOCITY_PROFIL 1  // Deprecated
-// #define REG_CONTROL_MODE_VELOCITY_TORQUE 2 // Deprecated
-// #define REG_CONTROL_MODE_TORQUE 3 // Deprecated
-// #define REG_CONTROL_MODE_VELOCITY_TORQUE_OPEN_LOOP 4 // Deprecated
-
 // REGISTER ERROR VALUES //////////////////////////////////////////////////////
 
 #define HW_ERROR_BIT_VOLTAGE 0

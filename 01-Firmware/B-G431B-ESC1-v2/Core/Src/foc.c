@@ -24,7 +24,7 @@
 // hard-coded settings
 #define ALPHA_CURRENT_SENSE_OFFSET	0.001f 	// low pass filter for calibrating the phase current ADC offset (automatically)
 
-// peripherals
+// FOC peripherals
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim6;
@@ -37,10 +37,51 @@ extern OPAMP_HandleTypeDef hopamp3;
 // serial communication (UART2) for TRACEs
 // TODO : use STM32 CUBE MONITOR
 extern HAL_Serial_Handler serial;
-extern float setpoint_torque_current_mA;
-extern float setpoint_flux_current_mA;
-float setpoint_electrical_angle_rad = 0.0f;
-float setpoint_flux_voltage_V = 0.0f;
+
+// high priority high interupt
+// TIM1 => Update Event Trigger => CAN (x2) ==> DMA (x2) ==> FOC IT
+void API_FOC_It(ADC_HandleTypeDef *hadc) __attribute__((section (".ccmram")));
+
+// high priority high frequency process called by IT
+void API_FOC_Torque_Update()  __attribute__((section (".ccmram")));
+
+// ADC IT for motor current sense, and votlage/temperature monitoring
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) __attribute__((section (".ccmram")));
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+	API_FOC_It(hadc);
+}
+
+// FOC state variable
+#define FOC_STATE_IDLE 0 					// brake
+#define FOC_STATE_TORQUE_CONTROL 1 			// normal operation
+#define FOC_STATE_FLUX_CONTROL 10 			// calibration
+static uint32_t foc_state = FOC_STATE_IDLE;
+
+void API_FOC_Torque_Enable()
+{
+	foc_state = FOC_STATE_TORQUE_CONTROL;
+	 API_FOC_Reset();
+}
+
+void API_FOC_Torque_Disable()
+{
+	foc_state = FOC_STATE_IDLE;
+	LL_FOC_brake();
+}
+
+// setpoints variables
+static float setpoint_torque_current_mA;
+static float setpoint_flux_current_mA;
+static float setpoint_electrical_angle_rad = 0.0f;
+static float setpoint_flux_voltage_V = 0.0f;
+
+void API_FOC_Set_Torque_Flux_Currents_mA(float Iq_mA, float Id_mA)
+{
+	setpoint_torque_current_mA = Iq_mA;
+	setpoint_flux_current_mA = Id_mA;
+}
 
 // FOC private variables
 static int32_t current_samples = 0;
@@ -100,6 +141,8 @@ void API_FOC_Init()
 	API_CORDIC_Processor_Init();
 	// Reset state
 	API_FOC_Reset();
+	// disable FOC
+	API_FOC_Torque_Disable();
 }
 
 // user API function
@@ -180,6 +223,10 @@ void LL_FOC_Update_Voltage()
 // this function uses REG_MOTOR_POLE_PAIRS register
 int API_FOC_Calibrate()
 {
+	// change mode
+	foc_state = FOC_STATE_IDLE;
+	HAL_Delay(200);
+
     // reset setpoints
     setpoint_electrical_angle_rad = 0.0f;
     setpoint_flux_voltage_V = 0.0f;
@@ -191,7 +238,7 @@ int API_FOC_Calibrate()
 	regs[REG_MOTOR_SYNCHRO_H] = 0;
 
 	// change mode
-	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_POSITION_FLUX;
+	foc_state = FOC_STATE_FLUX_CONTROL;
 
 	// find natural direction
 
@@ -227,7 +274,7 @@ int API_FOC_Calibrate()
     setpoint_flux_voltage_V = 0.0f;
 
 	// change mode
-	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
+	foc_state = FOC_STATE_IDLE;
 
     // determine the direction the sensor moved
     float const delta_angle = mid_angle-end_angle;
@@ -260,7 +307,7 @@ int API_FOC_Calibrate()
     setpoint_flux_voltage_V = 1.0f; // hard-coded V setpoint
 
 	// change mode
-	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_POSITION_FLUX;
+	foc_state = FOC_STATE_FLUX_CONTROL;
 
 	// wait
     HAL_Delay(1000);
@@ -276,7 +323,7 @@ int API_FOC_Calibrate()
     setpoint_flux_voltage_V = 0.0f;
 
 	// change mode
-	regs[REG_CONTROL_MODE] = REG_CONTROL_MODE_IDLE;
+	foc_state = FOC_STATE_IDLE;
 
 	// store calibration into EEPROM
 	store_eeprom_regs();
@@ -313,15 +360,19 @@ void API_FOC_Torque_Update()
 	float sine_theta = 1.0f;
 
 	// check control mode
-	switch(regs[REG_CONTROL_MODE])
+	switch(foc_state)
 	{
-	case REG_CONTROL_MODE_IDLE:
+	case FOC_STATE_IDLE:
 		{
+			// don t use PI
 			pid_reset(&flux_pi);
 			pid_reset(&torque_pi);
+
+			// do brake
+			LL_FOC_brake();
 		}
 		break;
-	case REG_CONTROL_MODE_POSITION_VELOCITY_TORQUE:
+	case FOC_STATE_TORQUE_CONTROL:
 		{
 			// process absolute position, and compute theta ahead using average processing time and velocity
 			float const absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
@@ -352,13 +403,13 @@ void API_FOC_Torque_Update()
 			present_Id_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
 			present_Iq_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
 
-			// compute Vd and Vq
-			// computation ~4µs
-
-
 			// compute Id and Iq errors
 			float const error_Id = setpoint_flux_current_mA   - present_Id_mA;
 			float const error_Iq = setpoint_torque_current_mA - present_Iq_mA;
+
+			// compute Vd and Vq
+			// computation ~4µs
+
 			// flux PI
 			float const flux_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KP_L],regs[REG_PID_FLUX_CURRENT_KP_H])))/100000.0f;
 			float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
@@ -391,10 +442,12 @@ void API_FOC_Torque_Update()
 				Vd *= k;
 			}
 
+			// do inverse clarke and park transformation and update 3-phase PWM generation
+			LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 
 		}
 		break;
-	case REG_CONTROL_MODE_POSITION_FLUX:
+	case FOC_STATE_FLUX_CONTROL:
 		{
 			// don t use PI
 			pid_reset(&flux_pi);
@@ -409,12 +462,12 @@ void API_FOC_Torque_Update()
 			// compute (Vd,Vq)
 			Vd = setpoint_flux_voltage_V; // torque setpoint open loop
 			Vq = 0.0f; // no torque
+
+			// do inverse clarke and park transformation and update 3-phase PWM generation
+			LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
 		}
 		break;
 	}
-	// do inverse clarke and park transformation and update 3-phase PWM generation
-	LL_FOC_set_phase_voltage(Vd,Vq,cosine_theta,sine_theta,present_voltage_V);
-
 
 	// performance monitoring
 	uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);
