@@ -58,6 +58,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 #define FOC_STATE_TORQUE_CONTROL 1 			// normal operation
 #define FOC_STATE_FLUX_CONTROL 10 			// calibration
 static uint32_t foc_state = FOC_STATE_IDLE;
+static uint16_t foc_timestamp_us = 0;
+static uint32_t foc_timestamp_ms = 0;
 
 // FOC setpoints variables
 static float setpoint_torque_current_mA = 0.0f;
@@ -361,8 +363,9 @@ void API_FOC_Service_Update()
 //    this may require adjustment of the Kp and Ki of both flux and torque PI regulator
 void API_FOC_Torque_Update()
 {
-	// performance monitoring
-	uint16_t t_begin = __HAL_TIM_GET_COUNTER(&htim6);
+	// timestamp
+	foc_timestamp_ms = HAL_GetTick();
+	foc_timestamp_us = __HAL_TIM_GET_COUNTER(&htim6);
 
 	float Vds = 0.0f;
 	float Vqs = 0.0f;
@@ -385,7 +388,7 @@ void API_FOC_Torque_Update()
 	case FOC_STATE_IDLE:
 		{
 			// [Theta]
-			theta_rad = normalize_angle(positionSensor_getRadiansEstimation(t_begin)*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
+			theta_rad = normalize_angle(positionSensor_getRadiansEstimation(foc_timestamp_us)*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
 
 			// [Cosine]
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
@@ -407,7 +410,7 @@ void API_FOC_Torque_Update()
 			// computation ~7µs (-02)
 
 			// [Theta]
-			absolute_position_rad = positionSensor_getRadiansEstimation(t_begin);
+			absolute_position_rad = positionSensor_getRadiansEstimation(foc_timestamp_us);
 			theta_rad = normalize_angle(absolute_position_rad*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
 
 			// [Cosine]
@@ -475,12 +478,21 @@ void API_FOC_Torque_Update()
 
 	// performance monitoring
 	uint16_t const t_end = __HAL_TIM_GET_COUNTER(&htim6);
-	uint16_t const t_tp = t_end-t_begin;
+	uint16_t const t_tp = t_end-foc_timestamp_us;
 	static const float alpha_performance_monitoring = 0.001f;
 	average_processing_time_us = (1.0f-alpha_performance_monitoring)*average_processing_time_us+alpha_performance_monitoring*(float)t_tp;
 	++foc_counter;
 }
 
+uint32_t API_FOC_Get_Timestamp_ms()
+{
+	return foc_timestamp_ms;
+}
+
+uint16_t API_FOC_Get_Timestamp_us()
+{
+	return foc_timestamp_us;
+}
 
 float API_FOC_Get_Present_Torque_Current()
 {

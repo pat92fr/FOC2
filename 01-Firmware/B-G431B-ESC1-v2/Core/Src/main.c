@@ -102,15 +102,9 @@ DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 
-float setpoint_torque_current_mA = 0.0f;
-float setpoint_flux_current_mA = 0.0f;
-extern float potentiometer_input_adc;
-extern float theta_rad; // DEBUG
-extern float absolute_position_rad; // DEBUG
-extern float init_error_data_bits; // DEBUG
-extern float present_position_rad; // DEBUG
-extern float expected_position_rad; // DEBUG
-extern float present_velocity_rad; // DEBUG
+//float setpoint_torque_current_mA = 0.0f;
+//float setpoint_flux_current_mA = 0.0f;
+//extern float potentiometer_input_adc;
 
 // serial communication
 HAL_Serial_Handler serial;
@@ -388,6 +382,8 @@ int main(void)
 	uint16_t service_last_time_us = present_time_us;
 	float setpoint_position_deg = 0.0f;
 	float setpoint_velocity_dps = 0.0f;
+	float setpoint_torque_current_mA = 0.0f;
+	float setpoint_flux_current_mA = 0.0f;
 	float error_velocity_dps = 0.0f;
 	uint32_t pid_counter = 0;
 	uint32_t mlp_counter = 0;
@@ -398,13 +394,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-		// TODO : add FOC time out IT
-		// TODO : add FOC time out IT
-		// TODO : add FOC time out IT
-		// TODO : add FOC time out IT
-
 	  	// hardware error clears torque enable register and disable FOC torque controller
-		if(regs[REG_HARDWARE_ERROR_STATUS] != 0 )
+		if( regs[REG_HARDWARE_ERROR_STATUS] != 0 )
 		{
 			// disable torque
 			regs[REG_TORQUE_ENABLE] = 0;
@@ -414,10 +405,24 @@ int main(void)
 			can_armed = false;
 		}
 
-		// a CAN bus time-out
+		// CAN bus time-out
 		// CAN bus watchdog (time-out = 1s hard-coded)
 		if( can_armed && (HAL_GetTick()>can_last_time+1000) )
 		{
+			// disable torque
+			regs[REG_TORQUE_ENABLE] = 0;
+			// disable FOC
+			API_FOC_Torque_Disable();
+			// disarm CAN
+			can_armed = false;
+		}
+
+		// FOC process time-out
+		// FOC watchdog (time-out = 10ms hard-coded)
+		if( HAL_GetTick() > API_FOC_Get_Timestamp_ms()+10 )
+		{
+			// error
+			regs[REG_HARDWARE_ERROR_STATUS] |= (1 << HW_ERROR_BIT_FOC_TIMEOUT);
 			// disable torque
 			regs[REG_TORQUE_ENABLE] = 0;
 			// disable FOC
@@ -500,12 +505,12 @@ int main(void)
 						0.1f,
 						vel_kp*error_velocity_dps+torque_feed_forward_ma
 				);
+				//setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f; // DEBUG
 				// set flux
 				float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 				setpoint_flux_current_mA = goal_flux_current_mA;
 
-				//setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f;
-
+				// update FOC parameters
 				API_FOC_Set_Torque_Flux_Currents_mA(setpoint_torque_current_mA,setpoint_flux_current_mA);
 			}
 			else // torque disable

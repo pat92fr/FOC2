@@ -232,7 +232,39 @@ class ram_frame(LabelFrame):
 				self.variables['mlp_frequency_servo'].set(str(result[45]))
 
 				self.variables['protocol_crc_fail_servo'].set(str(result[48]))
-				self.variables['hardware_error_status_servo'].set(str(result[49]))
+				#self.variables['hardware_error_status_servo'].set(str(result[49]))
+
+				# process ERRORS
+				HW_ERROR_BIT_VOLTAGE = 0
+				HW_ERROR_BIT_POSITION_SENSOR_STATUS_ERROR = 1
+				HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING = 2
+				HW_ERROR_BIT_POSITION_SENSOR_TIMESTAMP = 3
+				HW_ERROR_BIT_FOC_TIMEOUT = 4
+				HW_ERROR_BIT_OVERLOAD = 5
+				HW_ERROR_BIT_OVERHEATING = 6
+
+				error_code = result[49]	
+				error_str = ""
+
+				if error_code & (1<<HW_ERROR_BIT_VOLTAGE):
+					error_str += "VOLTAGE "
+				if error_code & (1<<HW_ERROR_BIT_POSITION_SENSOR_STATUS_ERROR):
+					error_str += "POS_SYS_ERR "
+				if error_code & (1<<HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING):
+					error_str += "POS_TIMEOUT "
+				if error_code & (1<<HW_ERROR_BIT_POSITION_SENSOR_TIMESTAMP):
+					error_str += "POS_INTERUPT "
+				if error_code & (1<<HW_ERROR_BIT_FOC_TIMEOUT):
+					error_str += "FOC_TIMEOUT "
+				if error_code & (1<<HW_ERROR_BIT_OVERLOAD):
+					error_str += "OVERLOAD "
+				if error_code & (1<<HW_ERROR_BIT_OVERHEATING):
+					error_str += "OVERHEAT "
+
+				self.variables['hardware_error_status_servo'].set(error_str)
+
+
+
 				self.data_ready = 1
 
 

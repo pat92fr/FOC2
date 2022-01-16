@@ -18,16 +18,17 @@ extern HAL_Serial_Handler serial;
 
 // µs TIMER
 extern TIM_HandleTypeDef htim6;
+
 // PWM IC TIMER
 static TIM_HandleTypeDef * position_sensor_htim = 0;
 static uint32_t calls = 0;
+
 // position state
 static uint32_t position_sensor_error = 0;
 static uint32_t position_sensor_error_counter = 0;
 static uint16_t present_time_us = 0;
+static float present_position_rad = 0.0f;
 static int16_t delta_t_us = 0;
-float present_position_rad = 0.0f; // public debug
-float expected_position_rad = 0.0f; // public debug
 static float delta_position_rad = 0.0f;
 static float const bit_to_radians_ratio = M_2PI/4096.0f;
 static float const max_radians = M_2PI/4096.0f*4095.0f;
@@ -35,13 +36,12 @@ static float const max_radians = M_2PI/4096.0f*4095.0f;
 static int16_t position_delta_time_us = 0;
 static uint16_t last_position_time_us = 0;
 static float last_position_rad = 0.0f;
-float present_velocity_rad = 0.0f; // public DEBUG
+static float present_velocity_rad = 0.0f;
 // multi-turn position state
 static int32_t present_revolution = 0;
 static float present_position_multi_rad = 0.0f;
-float init_error_data_bits = 0.0f; // public // DEBUG
 
-#define ALPHA_VELOCITY 0.01f // 0.1f default
+#define ALPHA_VELOCITY 0.25f // 0.25f default
 
 void API_AS5048A_Position_Sensor_Init(TIM_HandleTypeDef * htim)
 {
@@ -67,7 +67,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 		// when position is MAX = 2*PI*(1-1/4096)°, length is 16+4095 bits
 		// compute PWM width / PWM period * 4119bits that gives the number of 1 bits
 		// @160MHz, CHANNEL1 = period = 53333 with PSC=2(+1)
-		init_error_data_bits = 4119.0f*(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_2)/(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_1);
+		float const init_error_data_bits = 4119.0f*(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_2)/(float)__HAL_TIM_GET_COMPARE(position_sensor_htim,TIM_CHANNEL_1);
 		// if data < 0 bits ==> must be an error
 		if(init_error_data_bits<(16.0f-0.8f)) // add a 0.8 margin due to IC TIMER PRECISION and PWM precision
 		{
@@ -103,7 +103,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			float const threshold_velocity_rds = M_2PI*1.0f; // Radians/s
 
 			// compute the expected position according last position, the current velocity and the actual rate of position (~1ms)
-			expected_position_rad = normalize_angle(last_position_rad+present_velocity_rad*position_delta_time_us/1000000.0f);
+			float const expected_position_rad = normalize_angle(last_position_rad+present_velocity_rad*position_delta_time_us/1000000.0f);
 
 			// actual velocity is > threshold velocity ==> apply filter on actual position
 			if(fabsf(present_velocity_rad)>threshold_velocity_rds)
@@ -111,7 +111,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 				// if actual position is near ZERO, use the expected position, ignore the actual position
 				if( present_position_rad < 0.12f )
 				{
-					present_position_rad = expected_position_rad+0.5*difference_angle(present_position_rad,expected_position_rad);
+					present_position_rad = expected_position_rad+0.25*difference_angle(present_position_rad,expected_position_rad);
 				}
 				// else ignore expected position, actual position is precise far from ZERO
 			}
@@ -133,12 +133,10 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 				delta_position_rad+=M_2PI;
 			}
 			present_position_multi_rad = present_position_rad+(float)present_revolution*M_2PI;
+
 			// compute velocity
-			//float const alpha_vel = (float)(regs[REG_EWMA_ENCODER]+1)/2560.0f; // 255 => B=0.1, 1 => beta = 0.0004
-			float const alpha_vel = 0.25f;
-			present_velocity_rad =
-					alpha_vel * (delta_position_rad / (float)position_delta_time_us * 1000000.0f)
-					+ (1.0f-alpha_vel) * present_velocity_rad;
+			present_velocity_rad = ALPHA_VELOCITY * (delta_position_rad / (float)position_delta_time_us * 1000000.0f) + (1.0f-ALPHA_VELOCITY) * present_velocity_rad;
+
 
 			// save last position
 			last_position_time_us = present_time_us;

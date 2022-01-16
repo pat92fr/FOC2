@@ -23,6 +23,8 @@ void API_FOC_Torque_Disable();
 
 void API_FOC_Set_Torque_Flux_Currents_mA(float Iq_mA, float Id_mA);	// 	Setpoint Iq & Id
 
+uint32_t API_FOC_Get_Timestamp_ms();
+uint16_t API_FOC_Get_Timestamp_us();
 float API_FOC_Get_Present_Torque_Current();
 float API_FOC_Get_Present_Flux_Current();
 float API_FOC_Get_Present_Voltage();
