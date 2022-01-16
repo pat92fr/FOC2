@@ -30,6 +30,7 @@ float mfmod(float x,float y) __attribute__((section (".ccmram")));
 
 // normalizing radian angle to [0,2PI]
 float normalize_angle(float angle_rad) __attribute__((section (".ccmram")));
+float difference_angle(float a, float b) __attribute__((section (".ccmram")));
 
 #ifdef __cplusplus
 }

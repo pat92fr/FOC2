@@ -26,7 +26,8 @@ static uint32_t position_sensor_error = 0;
 static uint32_t position_sensor_error_counter = 0;
 static uint16_t present_time_us = 0;
 static int16_t delta_t_us = 0;
-static float present_position_rad = 0.0f;
+float present_position_rad = 0.0f; // public debug
+float expected_position_rad = 0.0f; // public debug
 static float delta_position_rad = 0.0f;
 static float const bit_to_radians_ratio = M_2PI/4096.0f;
 static float const max_radians = M_2PI/4096.0f*4095.0f;
@@ -34,7 +35,7 @@ static float const max_radians = M_2PI/4096.0f*4095.0f;
 static int16_t position_delta_time_us = 0;
 static uint16_t last_position_time_us = 0;
 static float last_position_rad = 0.0f;
-static float present_velocity_rad = 0.0f;
+float present_velocity_rad = 0.0f; // public DEBUG
 // multi-turn position state
 static int32_t present_revolution = 0;
 static float present_position_multi_rad = 0.0f;
@@ -86,10 +87,39 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			position_sensor_error = 0;
 			// compute new position in radians and constrain it to [0..2pi[
 			present_position_rad = ((init_error_data_bits-16.0f))*bit_to_radians_ratio;
+			// limit [0,2PI[
 			if(present_position_rad<0.0f)
 				present_position_rad=0.0f;
 			if(present_position_rad>max_radians)
 				present_position_rad=max_radians;
+			// delay since the last position
+			position_delta_time_us = (int16_t)(present_time_us-last_position_time_us);
+
+			// AS5048A specific
+			// AS5048A specific
+			// AS5048A specific
+			// there is a zero crossing problem with AS5048A at high speed
+			// we have to filter the actual position from an arbitrary base velocity ~ 1 RPM
+			float const threshold_velocity_rds = M_2PI; // Radians/s
+
+			// compute the expected position according last position, the current velocity and the actual rate of position (~1ms)
+			expected_position_rad = normalize_angle(last_position_rad+present_velocity_rad*position_delta_time_us/1000000.0f);
+
+			// actual velocity is > threshold velocity ==> apply filter on actual position
+			if(fabsf(present_velocity_rad)>threshold_velocity_rds)
+			{
+				// if actual position is near ZERO, use the expected position, ignore the actual position
+				if( present_position_rad < 0.4f )
+				{
+					present_position_rad = expected_position_rad;
+				}
+				// else ignore expected position, actual position is precise far from ZERO
+			}
+
+			// AS5048A specific
+			// AS5048A specific
+			// AS5048A specific
+
 			// compute multi-turn position and velocity in radians
 			delta_position_rad = present_position_rad-last_position_rad;
 			if(delta_position_rad>M_PI)
@@ -104,7 +134,6 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			}
 			present_position_multi_rad = present_position_rad+(float)present_revolution*M_2PI;
 			// compute velocity
-			position_delta_time_us = (int16_t)(present_time_us-last_position_time_us);
 			float const alpha_vel = (float)(regs[REG_EWMA_ENCODER]+1)/2560.0f; // 255 => B=0.1, 1 => beta = 0.0004
 			present_velocity_rad =
 					alpha_vel * (delta_position_rad / (float)position_delta_time_us * 1000000.0f)

@@ -55,3 +55,16 @@ float normalize_angle(float angle_rad)
 	return a >= 0.0f ? a : (a + M_2PI);
 }
 
+float difference_angle(float a_rad, float b_rad)
+{
+	float delta = a_rad-b_rad;
+	if(delta>M_PI)
+	{
+		return delta-M_2PI;
+	}
+	if(delta<=-M_PI)
+	{
+		return delta+M_2PI;
+	}
+	return delta;
+}

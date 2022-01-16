@@ -108,8 +108,11 @@ extern float potentiometer_input_adc;
 extern float theta_rad; // DEBUG
 extern float absolute_position_rad; // DEBUG
 extern float init_error_data_bits; // DEBUG
+extern float present_position_rad; // DEBUG
+extern float expected_position_rad; // DEBUG
+extern float present_velocity_rad; // DEBUG
 
-// serial communitation
+// serial communication
 HAL_Serial_Handler serial;
 
 // CAN communication, state and fail-safe
@@ -618,8 +621,11 @@ int main(void)
 			HAL_Serial_Print(&serial,"%d %d\n",
 						//(int)(RADIANS_TO_DEGREES(positionSensor_getRadians())*10.0f),
 						(int)(init_error_data_bits),
+						(int)(RADIANS_TO_DEGREES(present_position_rad)*10.0f)
+						//(int)(RADIANS_TO_DEGREES(expected_position)*10.0f)
+						//(int)(RADIANS_TO_DEGREES(present_velocity_rad)*0.1f)
 						//(int)(RADIANS_TO_DEGREES(theta_rad)*10.0f)
-						(int)(RADIANS_TO_DEGREES(absolute_position_rad)*10.0f)
+						//(int)(RADIANS_TO_DEGREES(absolute_position_rad)*10.0f)
 						//regs[REG_PROTOCOL_CRC_FAIL]
 						//(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_RPS())*10.0f)
 						//(int)positionSensor_getDeltaTimeEstimation()
