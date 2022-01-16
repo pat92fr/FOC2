@@ -100,7 +100,7 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			// AS5048A specific
 			// there is a zero crossing problem with AS5048A at high speed
 			// we have to filter the actual position from an arbitrary base velocity ~ 1 RPM
-			float const threshold_velocity_rds = M_2PI; // Radians/s
+			float const threshold_velocity_rds = M_2PI*1.0f; // Radians/s
 
 			// compute the expected position according last position, the current velocity and the actual rate of position (~1ms)
 			expected_position_rad = normalize_angle(last_position_rad+present_velocity_rad*position_delta_time_us/1000000.0f);
@@ -109,9 +109,9 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			if(fabsf(present_velocity_rad)>threshold_velocity_rds)
 			{
 				// if actual position is near ZERO, use the expected position, ignore the actual position
-				if( present_position_rad < 0.4f )
+				if( present_position_rad < 0.12f )
 				{
-					present_position_rad = expected_position_rad;
+					present_position_rad = expected_position_rad+0.5*difference_angle(present_position_rad,expected_position_rad);
 				}
 				// else ignore expected position, actual position is precise far from ZERO
 			}
@@ -134,7 +134,8 @@ void API_AS5048A_Position_Sensor_It(TIM_HandleTypeDef *htim)
 			}
 			present_position_multi_rad = present_position_rad+(float)present_revolution*M_2PI;
 			// compute velocity
-			float const alpha_vel = (float)(regs[REG_EWMA_ENCODER]+1)/2560.0f; // 255 => B=0.1, 1 => beta = 0.0004
+			//float const alpha_vel = (float)(regs[REG_EWMA_ENCODER]+1)/2560.0f; // 255 => B=0.1, 1 => beta = 0.0004
+			float const alpha_vel = 0.25f;
 			present_velocity_rad =
 					alpha_vel * (delta_position_rad / (float)position_delta_time_us * 1000000.0f)
 					+ (1.0f-alpha_vel) * present_velocity_rad;

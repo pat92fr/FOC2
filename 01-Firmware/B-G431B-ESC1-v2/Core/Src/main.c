@@ -504,7 +504,7 @@ int main(void)
 				float const goal_flux_current_mA = (int16_t)(MAKE_SHORT(regs[REG_GOAL_FLUX_CURRENT_MA_L],regs[REG_GOAL_FLUX_CURRENT_MA_H]));
 				setpoint_flux_current_mA = goal_flux_current_mA;
 
-				setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f;
+				//setpoint_torque_current_mA=(potentiometer_input_adc/4096)*3000.0f;
 
 				API_FOC_Set_Torque_Flux_Currents_mA(setpoint_torque_current_mA,setpoint_flux_current_mA);
 			}
@@ -584,10 +584,10 @@ int main(void)
 			HAL_GPIO_WritePin(STATUS_GPIO_Port,STATUS_Pin,(regs[REG_LED]>0)||(regs[REG_HARDWARE_ERROR_STATUS]>0)?GPIO_PIN_SET:GPIO_PIN_RESET);
 
 			// DEBUG
-			if(potentiometer_input_adc>200)
-				regs[REG_TORQUE_ENABLE] = 1;
-			else
-				regs[REG_TORQUE_ENABLE] = 0;
+//			if(potentiometer_input_adc>200)
+//				regs[REG_TORQUE_ENABLE] = 1;
+//			else
+//				regs[REG_TORQUE_ENABLE] = 0;
 
 			// Pressing the button starts calibration
 			if(HAL_GPIO_ReadPin(BUTTON_GPIO_Port,BUTTON_Pin)==GPIO_PIN_RESET)
@@ -618,18 +618,18 @@ int main(void)
 		static uint32_t counter = 0;
 		if(((++counter)%100)==0)
 		{
-			HAL_Serial_Print(&serial,"%d %d\n",
-						//(int)(RADIANS_TO_DEGREES(positionSensor_getRadians())*10.0f),
-						(int)(init_error_data_bits),
-						(int)(RADIANS_TO_DEGREES(present_position_rad)*10.0f)
-						//(int)(RADIANS_TO_DEGREES(expected_position)*10.0f)
-						//(int)(RADIANS_TO_DEGREES(present_velocity_rad)*0.1f)
-						//(int)(RADIANS_TO_DEGREES(theta_rad)*10.0f)
-						//(int)(RADIANS_TO_DEGREES(absolute_position_rad)*10.0f)
-						//regs[REG_PROTOCOL_CRC_FAIL]
-						//(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_RPS())*10.0f)
-						//(int)positionSensor_getDeltaTimeEstimation()
-					);
+//			HAL_Serial_Print(&serial,"%d %d\n",
+//						//(int)(RADIANS_TO_DEGREES(positionSensor_getRadians())*10.0f),
+//						(int)(init_error_data_bits),
+//						(int)(RADIANS_TO_DEGREES(present_position_rad)*10.0f)
+//						//(int)(RADIANS_TO_DEGREES(expected_position)*10.0f)
+//						//(int)(RADIANS_TO_DEGREES(present_velocity_rad)*0.1f)
+//						//(int)(RADIANS_TO_DEGREES(theta_rad)*10.0f)
+//						//(int)(RADIANS_TO_DEGREES(absolute_position_rad)*10.0f)
+//						//regs[REG_PROTOCOL_CRC_FAIL]
+//						//(int)(RADIANS_TO_DEGREES(API_AS5048A_Position_Sensor_Get_RPS())*10.0f)
+//						//(int)positionSensor_getDeltaTimeEstimation()
+//					);
 
 
 //			HAL_Serial_Print(&serial,"%d %d %d\n",
