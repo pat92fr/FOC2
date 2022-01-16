@@ -30,7 +30,7 @@ class trace_frame(LabelFrame):
 
 		fa = LabelFrame(self,text="Actions")
 		fa.grid(column = 0, row = 0, sticky='nesw')
-		fa.columnconfigure(1, weight=1)
+		fa.columnconfigure(2, weight=1)
 
 		self.variables["square_position"] = IntVar()
 		self.variables["square_position"].set(0)		
@@ -41,6 +41,11 @@ class trace_frame(LabelFrame):
 		self.variables["triangle_position"].set(0)		
 		self.checks['triangle_position'] = Checkbutton(fa,text="Triangle position Test", variable=self.variables["triangle_position"])
 		self.checks['triangle_position'].grid(column = 1, row = 0, sticky='nw')
+
+		self.variables["sinus_position"] = IntVar()
+		self.variables["sinus_position"].set(0)		
+		self.checks['sinus_position'] = Checkbutton(fa,text="Sinus position Test", variable=self.variables["sinus_position"])
+		self.checks['sinus_position'].grid(column = 2, row = 0, sticky='nw')
 		
 		fp = LabelFrame(self,text="Position Control")
 		fp.grid(column = 0, row = 1, sticky='nesw')
@@ -196,6 +201,10 @@ class trace_frame(LabelFrame):
 				return int((amplitude)*10)
 		else:
 			return 0
+
+	def test_sinus_position(self):
+		amplitude = 4000 #80° test
+		return int(math.sin(time.time()*6.0*math.pi)*amplitude/2.0)
 
 	def test_round_position(self):
 		if time.time()*1000.0 >= self.test_timer+20.0:

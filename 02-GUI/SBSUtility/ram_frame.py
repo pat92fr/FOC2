@@ -133,6 +133,11 @@ class ram_frame(LabelFrame):
 				if  value != 0:
 					print("write RAM...")
 					self.protocol.write_word_command(self.id.current_id,0x83,[value],verbose=1)
+			elif self.trace.variables["sinus_position"].get() == 1:
+				value = self.trace.test_sinus_position()
+				if  value != 0:
+					print("write RAM...")
+					self.protocol.write_word_command(self.id.current_id,0x83,[value],verbose=1)
 
 			# send read command
 			if (self.counter%100)==0:
