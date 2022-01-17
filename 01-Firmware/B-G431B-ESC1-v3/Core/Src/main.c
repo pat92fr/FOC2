@@ -49,7 +49,8 @@
 // Position sensor type :
 //    "AS5600_I2C"
 //    "AS5048A_PWM"
-#define SENSOR_TYPE AS5048A_PWM
+//#define SENSOR_TYPE AS5048A_PWM
+#define SENSOR_TYPE AS5600_I2C
 
 // PID loop period in µs
 //  normal setting is 1000us (1KHz)
@@ -436,6 +437,9 @@ int main(void)
 			pid_last_time_us+=PID_LOOP_PERIOD;
 			++pid_counter;
 
+			// update sensor
+			positionSensor_update();
+
 			if(regs[REG_TORQUE_ENABLE])
 			{
 				// transition from torque disable to enable
@@ -470,8 +474,7 @@ int main(void)
 					API_FOC_Torque_Enable();
 				}
 
-				// update sensor
-				positionSensor_update();
+
 
 				// compute position set-point from goal and EEPROM position limits
 				float const goal_position_deg = (float)((int16_t)(MAKE_SHORT(regs[REG_GOAL_POSITION_DEG_L],regs[REG_GOAL_POSITION_DEG_H])))/10.0f;
