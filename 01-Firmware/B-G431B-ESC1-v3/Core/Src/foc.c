@@ -240,6 +240,9 @@ void LL_FOC_Update_Voltage()
 // this function uses REG_MOTOR_POLE_PAIRS register
 int API_FOC_Calibrate()
 {
+	// voltage
+#define CALIBRATION_VOLTAGE 3.0
+
 	// change mode
 	foc_state = FOC_STATE_IDLE;
 	HAL_Delay(200);
@@ -261,7 +264,7 @@ int API_FOC_Calibrate()
 
 	// set electrical angle
 	setpoint_electrical_angle_rad = M_3PI_2;
-	setpoint_flux_voltage_V = 1.0f; // hard-coded V setpoint
+	setpoint_flux_voltage_V = CALIBRATION_VOLTAGE; // hard-coded V setpoint
 	HAL_Delay(100);
 
     // move one electrical revolution forward
@@ -321,7 +324,7 @@ int API_FOC_Calibrate()
 
     // set electrical angle
     setpoint_electrical_angle_rad = 0.0f;
-    setpoint_flux_voltage_V = 1.0f; // hard-coded V setpoint
+    setpoint_flux_voltage_V = CALIBRATION_VOLTAGE; // hard-coded V setpoint
 
 	// change mode
 	foc_state = FOC_STATE_FLUX_CONTROL;

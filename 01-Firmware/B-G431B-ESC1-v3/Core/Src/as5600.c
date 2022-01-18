@@ -232,7 +232,7 @@ HAL_StatusTypeDef AS5600_Init(AS5600_TypeDef *as5600) {
     // AS5600_SLOW_FILTER_8X
     // AS5600_SLOW_FILTER_4X
     // AS5600_SLOW_FILTER_2X
-   	config.bit.SF = AS5600_SLOW_FILTER_16X;
+   	config.bit.SF = AS5600_SLOW_FILTER_2X;
 
    	// FAST_FILTER
 	// Possible configuration:
