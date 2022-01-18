@@ -512,6 +512,7 @@ int main(void)
 
 				// update FOC parameters
 				API_FOC_Set_Torque_Flux_Currents_mA(setpoint_torque_current_mA,setpoint_flux_current_mA);
+
 			}
 			else // torque disable
 			{

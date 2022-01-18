@@ -10,6 +10,7 @@
 #include "as5600.h"
 #include "as5048a.h"
 #include "math_tool.h"
+#include "control_table.h"
 
 extern I2C_HandleTypeDef hi2c1;
 extern TIM_HandleTypeDef htim4;
@@ -103,7 +104,32 @@ float positionSensor_getRadiansEstimation(uint16_t time_us)
 		}else{
 			delta_t_us = (time_us - sensor->lastUpdate);
 		}
-		return sensor->angle_rad + sensor->velocity_rad*(float)(delta_t_us+100)/1000000.0f; // Slow filter latency is 0.2ms
+
+
+		// position has been received during FOC algorithm execution
+		if(delta_t_us<0) // should never happend because of NVIC priority (TIM4 priority lower than ADC DMA priority)
+		{
+			// set encoder error
+			regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_TIMESTAMP;
+			// return error
+			return 0.0f; // force ZERO
+		}
+		// check old sample error
+		else if(delta_t_us>1200) //1.2ms
+		{
+			// set encoder error
+			regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING;
+			// return error
+			return 0.0f; // force ZERO
+		}
+		// normal
+		else
+		{
+			// clear encoder error
+			regs[REG_HARDWARE_ERROR_STATUS] &= ~(1UL << HW_ERROR_BIT_POSITION_SENSOR_NOT_RESPONDING);
+			// compute estimation
+			return sensor->angle_rad + sensor->velocity_rad*(float)(delta_t_us+200)/1000000.0f; // Slow filter latency is 0.2ms
+		}
 	}
 	case AS5048A_PWM:
 		return API_AS5048A_Position_Sensor_Get_Radians_Estimation(time_us);
@@ -160,7 +186,13 @@ void positionSensor_update(void){
 		}
 
 		// raw data from the sensor
-		AS5600_GetAngle(sensor->as5600Handle, &angle_data);
+		HAL_StatusTypeDef status = AS5600_GetAngle(sensor->as5600Handle, &angle_data);
+
+		if(status!=HAL_OK)
+		{	// set encoder error
+			regs[REG_HARDWARE_ERROR_STATUS] |= 1UL << HW_ERROR_BIT_POSITION_SENSOR_STATUS_ERROR;
+			regs[REG_PROTOCOL_CRC_FAIL]++;
+		}
 
 		// tracking the number of rotations
 		// in order to expand angle range form [0,2PI]

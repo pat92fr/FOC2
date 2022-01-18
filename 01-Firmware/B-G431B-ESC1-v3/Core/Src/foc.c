@@ -72,8 +72,6 @@ static float present_Ids_mA = 0.0;
 static float present_Iqs_mA = 0.0f;
 static pid_context_t flux_pi;
 static pid_context_t torque_pi;
-float theta_rad = 0.0f; // public // DEBUG
-float absolute_position_rad = 0.0f; // public // DEBUG
 
 // FOC current sense
 static float motor_current_mA[3] = {0.0f,0.0f,0.0f};
@@ -384,6 +382,7 @@ void API_FOC_Torque_Update()
 	float const flux_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_FLUX_CURRENT_KI_L],regs[REG_PID_FLUX_CURRENT_KI_H])))/100000000.0f;
 	float const torque_Kp = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KP_L],regs[REG_PID_TORQUE_CURRENT_KP_H])))/100000.0f;
 	float const torque_Ki = (float)((int16_t)(MAKE_SHORT(regs[REG_PID_TORQUE_CURRENT_KI_L],regs[REG_PID_TORQUE_CURRENT_KI_H])))/100000000.0f;
+	float const reg_max_velocity_dps = (int16_t)(MAKE_SHORT(regs[REG_MAX_VELOCITY_DPS_L],regs[REG_MAX_VELOCITY_DPS_H]));
 
 	// check control mode
 	switch(foc_state)
@@ -391,7 +390,7 @@ void API_FOC_Torque_Update()
 	case FOC_STATE_IDLE:
 		{
 			// [Theta]
-			theta_rad = normalize_angle(positionSensor_getRadiansEstimation(foc_timestamp_us)*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
+			float const theta_rad = normalize_angle(positionSensor_getRadiansEstimation(foc_timestamp_us)*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
 
 			// [Cosine]
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
@@ -413,8 +412,7 @@ void API_FOC_Torque_Update()
 			// computation ~7µs (-02)
 
 			// [Theta]
-			absolute_position_rad = positionSensor_getRadiansEstimation(foc_timestamp_us);
-			theta_rad = normalize_angle(absolute_position_rad*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
+			float const theta_rad = normalize_angle(positionSensor_getRadiansEstimation(foc_timestamp_us)*reg_pole_pairs*reverse+ phase_offset_rad + phase_synchro_offset_rad);
 
 			// [Cosine]
 			API_CORDIC_Processor_Update(theta_rad,&cosine_theta,&sine_theta);
@@ -453,8 +451,21 @@ void API_FOC_Torque_Update()
 				Vds *= k;
 			}
 
-			// do inverse clarke and park transformation and update 3-phase PWM generation
-			LL_FOC_set_phase_voltage(Vds,Vqs,cosine_theta,sine_theta,present_voltage_V);
+			// fail-safe over-speed
+			if(fabsf(positionSensor_getVelocityDegree())>reg_max_velocity_dps)
+			{
+				//
+				pid_reset(&flux_pi);
+				pid_reset(&torque_pi);
+
+				// do brake
+				LL_FOC_brake();
+			}
+			else
+			{
+				// do inverse clarke and park transformation and update 3-phase PWM generation
+				LL_FOC_set_phase_voltage(Vds,Vqs,cosine_theta,sine_theta,present_voltage_V);
+			}
 		}
 		break;
 	case FOC_STATE_FLUX_CONTROL:
