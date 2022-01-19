@@ -441,6 +441,15 @@ void API_FOC_Torque_Update()
 					present_voltage_V // output_limit
 			);
 
+			/*
+#define INDUCTANCE 0.100
+
+			float const Ke = 8.3f/105.0f;
+			Vqs += DEGREES_TO_RADIANS(fabsf(positionSensor_getVelocityDegree()))*INDUCTANCE*present_Ids_mA/1000.0f;
+			Vds -= DEGREES_TO_RADIANS(fabsf(positionSensor_getVelocityDegree()))*(INDUCTANCE*present_Iqs_mA/1000.0f+Ke);
+*/
+
+
 			// voltage norm saturation Umax = Udc/sqrt(3)
 			float const Vmax = present_voltage_V*INV_SQRT3;
 			float const Vnorm = sqrtf(Vds*Vds+Vqs*Vqs);
