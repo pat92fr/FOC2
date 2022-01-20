@@ -399,6 +399,12 @@ void API_FOC_Torque_Update()
 			float const present_Ialpha = ( 2.0f * motor_current_mA[0] - motor_current_mA[1] - motor_current_mA[2] ) / 3.0f;
 			float const present_Ibeta  = INV_SQRT3 * ( motor_current_mA[1] - motor_current_mA[2] );
 
+			// FIX 2/SRT3
+			// FIX 2/SRT3
+			// FIX 2/SRT3
+			// FIX 2/SRT3
+			// FIX 2/SRT3
+
 			// [Park Transformation]
 			present_Ids_mA =  present_Ialpha * cosine_theta + present_Ibeta * sine_theta;
 			present_Iqs_mA = -present_Ialpha * sine_theta   + present_Ibeta * cosine_theta;
