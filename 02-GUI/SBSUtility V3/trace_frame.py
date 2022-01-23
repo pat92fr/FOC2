@@ -171,7 +171,7 @@ class trace_frame(LabelFrame):
 			return 0
 
 	def test_square_position(self):
-		amplitude = 840/2.0 #60° test
+		amplitude = 90.0*6.0/2.0 #60° test
 		if time.time()*1000.0 >= self.test_timer+1000.0:
 			self.test_timer = time.time()*1000.0
 			if self.test_square_value == 0:
@@ -187,7 +187,7 @@ class trace_frame(LabelFrame):
 			return 0
 
 	def test_triangle_position(self):
-		amplitude = 840/2.0 #60° test
+		amplitude = 90.0
 		if time.time()*1000.0 >= self.test_timer+250.0:
 			self.test_timer = time.time()*1000.0
 			if self.test_square_value == 0:
@@ -203,7 +203,7 @@ class trace_frame(LabelFrame):
 			return 0
 
 	def test_sinus_position(self):
-		amplitude = 4000 #80° test
+		amplitude = 90.0*6.0*10.0
 		return int(math.sin(time.time()*6.0*math.pi)*amplitude/2.0)
 
 	def test_round_position(self):

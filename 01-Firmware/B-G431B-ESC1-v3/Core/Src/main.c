@@ -489,8 +489,8 @@ int main(void)
 				float const torque_feed_forward_ma = (int16_t)(MAKE_SHORT(regs[REG_GOAL_TORQUE_CURRENT_MA_L],regs[REG_GOAL_TORQUE_CURRENT_MA_H]));
 				// compute torque setpoint
 				float const error_position_deg = setpoint_position_deg-positionSensor_getDegreeMultiturn();
-				float const pos_kp = (float)regs[REG_GOAL_POS_KP];
-				float const pos_kd = (float)regs[REG_GOAL_POS_KD]*100.0f;
+				float const pos_kp = (float)regs[REG_GOAL_POS_KP]*2.0f;
+				float const pos_kd = (float)regs[REG_GOAL_POS_KD]*100.0f*2.0f;
 				float const reg_max_current_ma = (uint16_t)(MAKE_SHORT(regs[REG_MAX_CURRENT_MA_L],regs[REG_MAX_CURRENT_MA_H]));
 				float const vel_kp = (float)regs[REG_GOAL_VEL_KP]/10.0f;
 				error_velocity_dps = ALPHA_VELOCITY*(setpoint_velocity_dps-positionSensor_getVelocityDegree())+(1.0f-ALPHA_VELOCITY)*error_velocity_dps;
