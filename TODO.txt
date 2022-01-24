@@ -1,0 +1,3 @@
+OPCODE PING + 0000000000
+
+OPCODE (ping) returns type of servo ( Front Hip, Rear Hip, Coxa, Hip, Knee)
