@@ -16,7 +16,6 @@ import cProfile
 
 
 def main():
-	## change COM port here
 	servo = servo_protocol2()
 	window = Tk()
 	window.title(" 8yServoGUI")
