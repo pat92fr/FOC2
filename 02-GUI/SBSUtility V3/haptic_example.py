@@ -102,7 +102,7 @@ def main():
 					servo_B_id,
 					0x83,
 					[int(fusion_position*10.0)], #pos
-					extra_timeout=1,
+					extra_timeout=5,
 					verbose=0
 				)
 
@@ -110,11 +110,11 @@ def main():
 					servo_A_id,
 					0x83,
 					[int(fusion_position*10.0)], #pos
-					extra_timeout=1,
+					extra_timeout=5,
 					verbose=0
 				)
 
-		time.sleep(0.002) 
+		time.sleep(0.003) 
 
 if __name__ == "__main__":
 
