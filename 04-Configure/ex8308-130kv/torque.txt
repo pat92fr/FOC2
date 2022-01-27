@@ -1,0 +1,7 @@
+0.2 @ 80mm (12V 6A) ==> 1.6Nm stall torque
+
+with 1:9 ==> 14Nm (=140kg.cm) stall
+
+leg 20cm ==> 70N (=7kg) stall
+
+12000dps ==> >1000dps
